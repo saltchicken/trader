@@ -1,0 +1,7 @@
+yfinance
+finnhub-python
+matplotlib
+numpy
+pandas
+ta
+python-dotenv
