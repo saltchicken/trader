@@ -31,6 +31,7 @@ class RateLimiter:
                     time.sleep(sleep_time)
                 self.calls.append(time.time())
             return func(*args, **kwargs)
+
         return wrapped
 
 
