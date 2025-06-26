@@ -67,7 +67,29 @@ if __name__ == "__main__":
         pprint(financials)
 
     def revenue_per_share():
-        rps = client.get_revenue_per_share_history("AAPL")
+        rps = client.get_revenue_per_share_history("CLOV")
         print(rps)
 
-    revenue_per_share()
+    def stock_symbols():
+        symbols = client.client.stock_symbols("US")
+        # print(len(symbols))
+        # print([s["symbol"] for s in symbols[:10]])  # Print first 10
+        df = pd.DataFrame(symbols)
+        valid_mics = ["XNYS", "XNAS"]  # NYSE and NASDAQ
+
+        df_filtered = df[(df["type"] == "Common Stock") & (df["mic"].isin(valid_mics))]
+
+        # df_filtered = df_filtered[~df_filtered["symbol"].str.contains(r"\.")]
+
+        print(f"Filtered count: {len(df_filtered)}")
+        symbol_to_check = "CLOV"
+
+        if symbol_to_check in df_filtered["symbol"].values:
+            print(f"{symbol_to_check} exists in the list.")
+        else:
+            print(f"{symbol_to_check} does NOT exist in the list.")
+
+        # print(df_filtered[["symbol", "description", "mic"]].head())
+
+    # revenue_per_share()
+    stock_symbols()
