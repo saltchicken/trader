@@ -1,5 +1,6 @@
 import finnhub
 import yfinance as yf
+import pandas as pd
 import json
 import time
 import threading
@@ -84,6 +85,27 @@ class FinanceClient:
         ticker = yf.Ticker(symbol)
         data = ticker.history(period=period)
         return data
+
+    @RateLimiter(60, 60)
+    def get_revenue_per_share_history(self, symbol):
+        ticker = yf.Ticker(symbol)
+        income_stmt = ticker.financials.T  # Income statement: Total Revenue
+        balance_sheet = (
+            ticker.balance_sheet.T
+        )  # Balance sheet: Common Shares Outstanding
+        df = pd.concat(
+            [income_stmt["Total Revenue"], balance_sheet["Ordinary Shares Number"]],
+            axis=1,
+        )
+
+        # Rename columns
+        df.columns = ["Total Revenue", "Shares Outstanding"]
+
+        # Calculate Revenue per Share
+        df["Revenue Per Share"] = df["Total Revenue"] / df["Shares Outstanding"]
+
+        # Display with most recent first
+        return df[["Revenue Per Share"]]
 
 
 # === Example Usage ===

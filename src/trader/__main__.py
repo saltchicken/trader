@@ -24,6 +24,7 @@ if __name__ == "__main__":
         print(data)
 
     def plot_close_data():
+        data = client.get_quote_history("T", "10y")
         plt.plot(data["Close"])
         plt.show()
 
@@ -65,21 +66,8 @@ if __name__ == "__main__":
         financials = client.client.company_basic_financials("PSNL", "all")
         pprint(financials)
 
-    def calc_time_series():
-        income_data = client.client.financials_reported(
-            symbol="AAPL", statement_type="ic", freq="annual"
-        )
-        # Get balance sheet (Shares Outstanding)
-        balance_data = client.client.financials_reported(
-            symbol="AAPL", statement_type="bs", freq="annual"
-        )
+    def revenue_per_share():
+        rps = client.get_revenue_per_share_history("AAPL")
+        print(rps)
 
-        for ic, bs in zip(income_data["financials"], balance_data["financials"]):
-            year = ic["year"]
-            revenue = float(ic.get("Revenue", 0))
-            shares = float(bs.get("WeightedAverageShsOut", 0)) or float(
-                bs.get("CommonSharesOutstanding", 0)
-            )
-            if shares:
-                rps = revenue / shares
-                print(f"{year}: Revenue Per Share = {rps:.2f}")
+    revenue_per_share()
