@@ -100,12 +100,16 @@ class FinanceClient:
 
         # Rename columns
         df.columns = ["Total Revenue", "Shares Outstanding"]
+        df["Year"] = df.index.year if isinstance(df.index[0], pd.Timestamp) else df.index.astype(str).str[:4]
 
         # Calculate Revenue per Share
         df["Revenue Per Share"] = df["Total Revenue"] / df["Shares Outstanding"]
+        df.dropna(inplace=True)
 
         # Display with most recent first
-        return df[["Revenue Per Share"]]
+        result = df.to_dict(orient="records")
+        return result
+        # return df[["Revenue Per Share"]]
 
 
 # === Example Usage ===

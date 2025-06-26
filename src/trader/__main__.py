@@ -9,6 +9,10 @@ import ta
 import os
 import sys
 
+from sqlalchemy import create_engine, text
+
+engine = create_engine("sqlite:///stock_data.db")
+
 from pprint import pprint
 
 main_dir = os.path.dirname(os.path.abspath(sys.modules["__main__"].__file__))
@@ -66,9 +70,9 @@ if __name__ == "__main__":
         financials = client.client.company_basic_financials("PSNL", "all")
         pprint(financials)
 
-    def revenue_per_share():
-        rps = client.get_revenue_per_share_history("CLOV")
-        print(rps)
+    def revenue_per_share(symbol):
+        rps = client.get_revenue_per_share_history(symbol)
+        return rps
 
     def stock_symbols():
         symbols = client.client.stock_symbols("US")
@@ -81,15 +85,53 @@ if __name__ == "__main__":
 
         # df_filtered = df_filtered[~df_filtered["symbol"].str.contains(r"\.")]
 
-        print(f"Filtered count: {len(df_filtered)}")
-        symbol_to_check = "CLOV"
+        # print(f"Filtered count: {len(df_filtered)}")
+        # print(df_filtered.to_dict())
+        stock_symbol_dict = df_filtered[["symbol", "description"]].to_dict(orient="records")
+        return stock_symbol_dict
 
-        if symbol_to_check in df_filtered["symbol"].values:
-            print(f"{symbol_to_check} exists in the list.")
-        else:
-            print(f"{symbol_to_check} does NOT exist in the list.")
+        # symbol_to_check = "CLOV"
+        #
+        # if symbol_to_check in df_filtered["symbol"].values:
+        #     print(f"{symbol_to_check} exists in the list.")
+        # else:
+        #     print(f"{symbol_to_check} does NOT exist in the list.")
 
         # print(df_filtered[["symbol", "description", "mic"]].head())
+        #
+    def update_database(symbol):
+        rps = revenue_per_share(symbol)
+        for entry in rps:
+            row = pd.DataFrame([{
+                "symbol": symbol,
+                "year": entry["Year"],
+                "revenue_per_share": entry["Revenue Per Share"]
+            }])
 
-    # revenue_per_share()
-    stock_symbols()
+            row.to_sql("test2", con=engine, if_exists="append", index=False)
+
+    def test_table():
+        df = pd.read_sql_table("test2", con=engine)
+        print(df)
+
+    def create_index():
+        with engine.connect() as conn:
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_symbol_date ON test2(symbol, year)"))
+        conn.commit()
+
+
+
+
+    # create_index()
+    # try:
+    #     update_database("GOOG")
+    # except Exception as e:
+    #     print(e)
+    # test_table()
+
+    # revenue_per_share("AAPL")
+    # stock_symbol_dict = stock_symbols()
+    # for symbol in stock_symbol_dict:
+    #     update_database(symbol["symbol"])
+    test_table()
+
