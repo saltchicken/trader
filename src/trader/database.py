@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from sqlalchemy.exc import IntegrityError
 import pandas as pd
+pd.set_option("display.float_format", "{:.2f}".format)
 
 Base = declarative_base()
 
@@ -23,6 +24,18 @@ class DatabaseClient:
     def update_rps(self, symbol, year, revenue_per_share):
         try:
             row = StockTable(symbol=symbol, year=year, revenue_per_share=revenue_per_share)
+            self.session.add(row)
+            self.session.commit()
+            return True
+        except IntegrityError:
+            print("IntegrityError")
+            self.session.rollback()
+            return False
+
+    def update(self, symbol, year):
+        try:
+            # self.session.query(StockTable).filter(StockTable.symbol == symbol, StockTable.year == year).delete()
+            row = StockTable(symbol=symbol, year=year)
             self.session.add(row)
             self.session.commit()
             return True
