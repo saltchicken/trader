@@ -93,6 +93,8 @@ class FinanceClient:
         balance_sheet = (
             ticker.balance_sheet.T
         )  # Balance sheet: Common Shares Outstanding
+        if "Total Revenue" not in income_stmt.columns or "Ordinary Shares Number" not in balance_sheet.columns:
+            return None
         df = pd.concat(
             [income_stmt["Total Revenue"], balance_sheet["Ordinary Shares Number"]],
             axis=1,
@@ -103,7 +105,7 @@ class FinanceClient:
         df["Year"] = df.index.year if isinstance(df.index[0], pd.Timestamp) else df.index.astype(str).str[:4]
 
         # Calculate Revenue per Share
-        df["Revenue Per Share"] = df["Total Revenue"] / df["Shares Outstanding"]
+        df["Revenue Per Share"] = np.where(df["Shares Outstanding"] != 0, df["Total Revenue"] / df["Shares Outstanding"], np.nan)
         df.dropna(inplace=True)
 
         # Display with most recent first

@@ -101,6 +101,9 @@ if __name__ == "__main__":
         #
     def update_database(symbol):
         rps = revenue_per_share(symbol)
+        if not rps:
+            print(f"No RPS data for {symbol}")
+            return
         for entry in rps:
             row = pd.DataFrame([{
                 "symbol": symbol,
@@ -108,7 +111,10 @@ if __name__ == "__main__":
                 "revenue_per_share": entry["Revenue Per Share"]
             }])
 
-            row.to_sql("test2", con=engine, if_exists="append", index=False)
+            try:
+                row.to_sql("test2", con=engine, if_exists="append", index=False)
+            except Exception as e:
+                print("Already exists", e)
 
     def test_table():
         df = pd.read_sql_table("test2", con=engine)
@@ -130,8 +136,9 @@ if __name__ == "__main__":
     # test_table()
 
     # revenue_per_share("AAPL")
-    # stock_symbol_dict = stock_symbols()
-    # for symbol in stock_symbol_dict:
-    #     update_database(symbol["symbol"])
-    test_table()
+    stock_symbol_dict = stock_symbols()
+    for symbol in stock_symbol_dict:
+        print(symbol)
+        update_database(symbol["symbol"])
+    # test_table()
 
