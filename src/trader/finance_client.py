@@ -2,6 +2,7 @@ import finnhub
 import yfinance as yf
 import pandas as pd
 import json
+import numpy as np
 import time
 import threading
 from dotenv import load_dotenv
