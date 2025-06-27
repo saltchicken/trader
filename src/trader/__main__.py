@@ -90,10 +90,10 @@ if __name__ == "__main__":
         for entry in rps:
             db.update_rps(symbol, entry["Year"], entry["Revenue Per Share"])
 
-    # for symbol in client.get_all_stocks():
-    #     print(symbol)
-    #     update_database_with_rps(symbol["symbol"])
+    for symbol in client.get_all_stocks():
+        print(symbol)
+        update_database_with_rps(symbol["symbol"])
 
-    db.print_table()
+    # db.print_table()
     # print(db.does_symbol_and_year_exist("FL", 2022))
 
