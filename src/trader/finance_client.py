@@ -113,6 +113,19 @@ class FinanceClient:
         result = df.to_dict(orient="records")
         return result
         # return df[["Revenue Per Share"]]
+        #
+        #
+        
+    def get_all_stocks(self):
+        symbols = self.client.stock_symbols("US")
+        df = pd.DataFrame(symbols)
+        valid_mics = ["XNYS", "XNAS"]  # NYSE and NASDAQ
+
+        df_filtered = df[(df["type"] == "Common Stock") & (df["mic"].isin(valid_mics))]
+        # df_filtered = df_filtered[~df_filtered["symbol"].str.contains(r"\.")]
+
+        # print(f"Filtered count: {len(df_filtered)}")
+        return df_filtered[["symbol", "description"]].to_dict(orient="records")
 
 
 # === Example Usage ===
