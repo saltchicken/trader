@@ -34,3 +34,9 @@ class DatabaseClient:
     def print_table(self):
             df = pd.read_sql_table("stock", con=self.engine)
             print(df)
+
+    def does_symbol_exist(self, symbol):
+        return self.session.query(StockTable).filter(StockTable.symbol == symbol).first() is not None
+
+    def does_symbol_and_year_exist(self, symbol, year):
+        return self.session.query(StockTable).filter(StockTable.symbol == symbol, StockTable.year == year).first() is not None

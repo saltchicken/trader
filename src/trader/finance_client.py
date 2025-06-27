@@ -106,7 +106,7 @@ class FinanceClient:
         df["Year"] = df.index.year if isinstance(df.index[0], pd.Timestamp) else df.index.astype(str).str[:4]
 
         # Calculate Revenue per Share
-        df["Revenue Per Share"] = np.where(df["Shares Outstanding"] != 0, df["Total Revenue"] / df["Shares Outstanding"], np.nan)
+        df["Revenue Per Share"] = (df["Total Revenue"] / df["Shares Outstanding"]).where(df["Shares Outstanding"] != 0)
         df.dropna(inplace=True)
 
         # Display with most recent first
