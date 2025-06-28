@@ -18,6 +18,8 @@ import numpy as np
 
 pd.set_option("display.float_format", "{:.2f}".format)
 
+from datetime import date
+
 Base = declarative_base()
 
 KEY_MAPPING = {
@@ -93,6 +95,7 @@ class DatabaseClient:
         # Ensure all expected keys exist in metrics
         for key in KEY_MAPPING:
             if key not in metrics:
+                print(f"Missing key: {key}")
                 metrics[key] = np.nan
 
         # Build kwargs for MetricSnapshot constructor
@@ -147,6 +150,15 @@ class DatabaseClient:
     #         self.session.commit()
     #     else:
     #         print(f"No update: symbol '{symbol}' not found")
+
+    def was_updated_today(self, symbol):
+        latest_snapshot = (
+            self.session.query(MetricSnapshot)
+            .filter(MetricSnapshot.symbol == symbol)
+            .order_by(MetricSnapshot.timestamp.desc())
+            .first()
+        )
+        return latest_snapshot and latest_snapshot.timestamp.date() == date.today()
 
     # Annual
     def update_revenue_per_share_annual(self, symbol, revenue_per_share_annual):
