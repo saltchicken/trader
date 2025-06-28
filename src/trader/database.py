@@ -187,3 +187,6 @@ class DatabaseClient:
             self.session.query(Company).filter(Company.symbol == symbol).first()
             is not None
         )
+
+    def get_all_symbols(self):
+        return [row.symbol for row in self.session.query(Company.symbol).all()]
