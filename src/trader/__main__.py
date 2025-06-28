@@ -25,16 +25,16 @@ class Trader:
         self.db = DatabaseClient("stock_data")
 
     def update_symbols(self):
-        symbols = self.client.get_all_stocks()
-        new_symbols = []
+        companies = self.client.get_all_stocks()
+        new_companies = []
 
-        for symbol in symbols:
-            if not self.db.does_symbol_exist(symbol):
-                new_symbols.append(symbol)
+        for company in companies:
+            if not self.db.does_symbol_exist(company["symbol"]):
+                new_companies.append(company)
 
-        if new_symbols:
-            print(f"Adding {len(new_symbols)} new symbols.")
-            self.db.update_symbols(new_symbols)
+        if new_companies:
+            print(f"Adding {len(new_companies)} new symbols.")
+            self.db.update_symbols(new_companies)
         else:
             print("No new symbols to add.")
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     trader = Trader()
     trader.update_symbols()
 
-    # trader.daily_update()
+    trader.daily_update()
 
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
