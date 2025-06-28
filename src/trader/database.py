@@ -74,15 +74,18 @@ class DatabaseClient:
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
-    def add_new_column(self, table, column_name, column_type):
-        self.session.execute(
-            text(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_type}")
-        )
+    # def add_new_column(self, table, column_name, column_type):
+    #     self.session.execute(
+    #         text(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_type}")
+    #     )
 
-    def update_symbols(self, symbols):
+    def update_symbols(self, companies):
+        print(companies)
         try:
-            for symbol in symbols:
-                row = Company(symbol=symbol)
+            for company in companies:
+                row = Company(
+                    symbol=company["symbol"], description=company["description"]
+                )
                 self.session.add(row)
             self.session.commit()
             return True

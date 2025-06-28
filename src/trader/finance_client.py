@@ -137,8 +137,8 @@ class FinanceClient:
         # df_filtered = df_filtered[~df_filtered["symbol"].str.contains(r"\.")]
 
         # print(f"Filtered count: {len(df_filtered)}")
-        # return df_filtered[["symbol", "description"]].to_dict(orient="records")
-        return df_filtered["symbol"].tolist()
+        return df_filtered[["symbol", "description"]].to_dict(orient="records")
+        # return df_filtered["symbol"].tolist()
 
 
 # === Example Usage ===
