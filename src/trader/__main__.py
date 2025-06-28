@@ -64,21 +64,7 @@ if __name__ == "__main__":
         # print(df_filtered[["symbol", "description", "mic"]].head())
         #
 
-    def update_database_with_rps(symbol):
-        # if db.does_symbol_and_year_exist(symbol, 2022):
-        if db.does_symbol_exist(symbol):
-            print(f"{symbol} already exists in database")
-            return
-
-        rps = client.get_revenue_per_share_history(symbol)
-        if not rps:
-            print(f"No RPS data for {symbol}")
-            db.update(symbol, 205)
-            return
-        for entry in rps:
-            db.update_rps(symbol, entry["Year"], entry["Revenue Per Share"])
-
-    # db.update_symbols(client.get_all_stocks())
+    db.update_symbols(client.get_all_stocks())
 
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
@@ -88,13 +74,14 @@ if __name__ == "__main__":
 
     # client.print_metrics("AAPL")
 
-    # for symbol in client.get_all_stocks():
-    #     print(symbol)
-    #     metrics = client.get_metrics(symbol)
-    #     db.daily_update(
-    #         symbol,
-    #         metrics,
-    #     )
+    for symbol in client.get_all_stocks():
+        print(symbol)
+        metrics = client.get_metrics(symbol)
+        db.daily_update(
+            symbol,
+            metrics,
+        )
 
     # db.print_table("companies")
-    db.print_table("metric_snapshots")
+    # db.print_table("metric_snapshots")
+    # db.print_table("current_metrics")
