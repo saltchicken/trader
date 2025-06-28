@@ -1,6 +1,8 @@
 import requests
 
-file_path = "sec-edgar-filings/documents/document_1_converted.html"  # Replace with your actual file name
+file_path = (
+    "sec-edgar-filings/documents/document_1.html"  # Replace with your actual file name
+)
 
 # with open(file_path, "r", encoding="utf-8") as f:
 #     text = f.read()
@@ -51,7 +53,7 @@ def send_to_gemma_yes_or_no(chunk, question):
         return answer
 
 
-def chunk_text(text, max_tokens=6000, overlap_tokens=200):
+def chunk_text(text, max_tokens=7000, overlap_tokens=200):
     max_chars = max_tokens * 4
     overlap_chars = overlap_tokens * 4
 
