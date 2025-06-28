@@ -5,6 +5,7 @@ import pandas as pd
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
+pd.set_option("display.width", None)
 import matplotlib.pyplot as plt
 import ta
 import os
@@ -87,13 +88,13 @@ if __name__ == "__main__":
 
     # client.print_metrics("AAPL")
 
-    for symbol in client.get_all_stocks():
-        print(symbol)
-        metrics = client.get_metrics(symbol)
-        db.daily_update(
-            symbol,
-            metrics,
-        )
+    # for symbol in client.get_all_stocks():
+    #     print(symbol)
+    #     metrics = client.get_metrics(symbol)
+    #     db.daily_update(
+    #         symbol,
+    #         metrics,
+    #     )
 
     # db.print_table("companies")
-    # db.print_table("metric_snapshots")
+    db.print_table("metric_snapshots")
