@@ -46,48 +46,48 @@ class FinanceClient:
     def limit(self):
         return self.rate_limit
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_profile(self, symbol):
         return self.client.company_profile2(symbol=symbol)
 
     def print_profile(self, symbol):
         print(json.dumps(self.get_profile(symbol), indent=4))
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_current_quote(self, symbol):
         return self.client.quote(symbol)
 
     def print_current_quote(self, symbol):
         print(json.dumps(self.get_current_quote(symbol), indent=4))
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_financials(self, symbol):
         return self.client.financials_reported(symbol=symbol)
 
     def print_financials(self, symbol):
         print(json.dumps(self.get_financials(symbol), indent=4))
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_metrics(self, symbol):
         return self.client.company_basic_financials(symbol=symbol, metric="all")
 
     def print_metrics(self, symbol):
         print(json.dumps(self.get_metrics(symbol), indent=4))
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_filings(self, symbol, _from, to):
         return self.client.filings(symbol=symbol, _from=_from, to=to)
 
     def print_filings(self, symbol, _from="2025-01-01", to="2025-06-24"):
         print(json.dumps(self.get_filings(symbol, _from, to), indent=4))
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_quote_history(self, symbol, period="1y"):
         ticker = yf.Ticker(symbol)
         data = ticker.history(period=period)
         return data
 
-    @RateLimiter(1, 1.1)
+    @RateLimiter(1, 1.25)
     def get_revenue_per_share_history(self, symbol):
         ticker = yf.Ticker(symbol)
         income_stmt = ticker.financials.T  # Income statement: Total Revenue
