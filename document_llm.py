@@ -82,13 +82,15 @@ with open(file_path, "r") as f:
 # Chunk the document
 chunks = chunk_text(document)
 
+question = "Who is the main subject of the document"
+
 # Process chunks one by one and collect summaries
 summaries = []
 for i, chunk in enumerate(chunks):
     print(f"Processing chunk {i + 1}/{len(chunks)}")
     summary = send_to_gemma(
         chunk,
-        prompt_suffix="Tell me what this chunk has to say about the main company involved.",
+        prompt_suffix=question,
     )
     # print("Summary:", summary)
     summaries.append(summary)
@@ -103,6 +105,6 @@ combined_summary = "\n".join(summaries)
 # print("Combined summary:\n", combined_summary)
 final_statement = send_to_gemma(
     combined_summary,
-    prompt_suffix="What is the main company involved",
+    prompt_suffix=question,
 )
 print(final_statement)
