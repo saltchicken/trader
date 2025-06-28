@@ -7,9 +7,10 @@ from sqlalchemy import (
     Float,
     DateTime,
     func,
+    ForeignKey,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 
 from sqlalchemy.exc import IntegrityError
 import pandas as pd
@@ -19,21 +20,49 @@ pd.set_option("display.float_format", "{:.2f}".format)
 
 Base = declarative_base()
 
+KEY_MAPPING = {
+    "52WeekHigh": "week52_high",
+    "3MonthAverageTradingVolume": "month3_average_trading_volume",
+}
 
-class StockTable(Base):
-    __tablename__ = "stock"
+
+class Company(Base):
+    __tablename__ = "companies"
+
     symbol = Column(String, primary_key=True)
-    last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
-    high_52_week = Column(Float)
+    description = Column(String)
+
+    snapshots = relationship("MetricSnapshot", back_populates="company")
+    current_metrics = relationship(
+        "CurrentMetrics", back_populates="company", uselist=False
+    )
+
+
+class MetricSnapshot(Base):
+    __tablename__ = "metric_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, ForeignKey("companies.symbol"), nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    # last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
+    week52_high = Column(Float)
     revenue_per_share_annual = Column(Float)
-    three_month_average_trading_volume = Column(Float)
+    month3_average_trading_volume = Column(Float)
+
+    company = relationship("Company", back_populates="snapshots")
 
 
-class StockHistoryTable(Base):
-    __tablename__ = "stock_history"
-    symbol = Column(String, primary_key=True)
-    year = Column(Integer, primary_key=True)
-    revenue_per_share = Column(Float)
+class CurrentMetrics(Base):
+    __tablename__ = "current_metrics"
+
+    symbol = Column(String, ForeignKey("companies.symbol"), primary_key=True)
+    timestamp = Column(DateTime, default=func.now())  # when the snapshot was recorded
+
+    week52_high = Column(Float)
+    revenue_per_share_annual = Column(Float)
+    month3_average_trading_volume = Column(Float)
+
+    company = relationship("Company", back_populates="current_metrics")
 
 
 class DatabaseClient:
@@ -51,7 +80,7 @@ class DatabaseClient:
     def update_symbols(self, symbols):
         try:
             for symbol in symbols:
-                row = StockTable(symbol=symbol["symbol"])
+                row = Company(symbol=symbol)
                 self.session.add(row)
             self.session.commit()
             return True
@@ -61,56 +90,72 @@ class DatabaseClient:
             return False
 
     def daily_update(self, symbol, metrics):
-        if "52WeekHigh" not in metrics:
-            metrics["52WeekHigh"] = np.nan
-        if "3MonthAverageTradingVolume" not in metrics:
-            metrics["3MonthAverageTradingVolume"] = np.nan
+        # Ensure all expected keys exist in metrics
+        for key in KEY_MAPPING:
+            if key not in metrics:
+                metrics[key] = np.nan
 
-        rows_updated = (
-            self.session.query(StockTable)
-            .filter_by(symbol=symbol)
-            .update(
-                {
-                    StockTable.high_52_week: metrics["52WeekHigh"],
-                    StockTable.three_month_average_trading_volume: metrics[
-                        "3MonthAverageTradingVolume"
-                    ],
-                    # `last_updated` will be auto-updated because of `onupdate=func.now()`
-                },
-                synchronize_session=False,
-            )
-        )
-        if rows_updated:
-            self.session.commit()
-        else:
-            print(f"No update: symbol '{symbol}' not found")
+        # Build kwargs for MetricSnapshot constructor
+        snapshot_data = {"symbol": symbol}
 
-    # Daily
-    def update_high_52_week(self, symbol, high_52_week):
-        rows_updated = (
-            self.session.query(StockTable)
-            .filter_by(symbol=symbol)
-            .update(
-                {
-                    StockTable.high_52_week: high_52_week
-                    # `last_updated` will be auto-updated because of `onupdate=func.now()`
-                },
-                synchronize_session=False,
-            )
-        )
-        if rows_updated:
-            self.session.commit()
-        else:
-            print(f"No update: symbol '{symbol}' not found")
+        for key, attr_name in KEY_MAPPING.items():
+            snapshot_data[attr_name] = metrics[key]
+
+        # Optionally add timestamp if you want to specify it:
+        # snapshot_data["timestamp"] = some_datetime_object
+
+        snapshot = MetricSnapshot(**snapshot_data)
+        self.session.add(snapshot)
+        self.session.commit()
+
+    def update_current_metrics(self, symbol, metrics):
+        for key in KEY_MAPPING:
+            if key not in metrics:
+                metrics[key] = np.nan
+
+        current = self.session.query(CurrentMetrics).filter_by(symbol=symbol).first()
+
+        if not current:
+            current = CurrentMetrics(symbol=symbol)
+            self.session.add(current)
+
+        for key, attr_name in KEY_MAPPING.items():
+            setattr(current, attr_name, metrics[key])
+
+        current.timestamp = func.now()
+        self.session.commit()
+
+    # def daily_update(self, symbol, metrics):
+    #     # Ensure keys from KEY_MAPPING exist in metrics; fill with NaN if missing
+    #     for key in KEY_MAPPING:
+    #         if key not in metrics:
+    #             metrics[key] = np.nan
+    #
+    #     # Build a dictionary of ORM attributes to update
+    #     update_dict = {}
+    #     for key, attr_name in KEY_MAPPING.items():
+    #         if hasattr(MetricSnapshot, attr_name):
+    #             update_dict[getattr(MetricSnapshot, attr_name)] = metrics[key]
+    #
+    #     rows_updated = (
+    #         self.session.query(MetricSnapshot)
+    #         .filter_by(symbol=symbol)
+    #         .update(update_dict, synchronize_session=False)
+    #     )
+    #
+    #     if rows_updated:
+    #         self.session.commit()
+    #     else:
+    #         print(f"No update: symbol '{symbol}' not found")
 
     # Annual
     def update_revenue_per_share_annual(self, symbol, revenue_per_share_annual):
         rows_updated = (
-            self.session.query(StockTable)
+            self.session.query(MetricSnapshot)
             .filter_by(symbol=symbol)
             .update(
                 {
-                    StockTable.revenue_per_share_annual: revenue_per_share_annual
+                    MetricSnapshot.revenue_per_share_annual: revenue_per_share_annual
                     # `last_updated` will be auto-updated because of `onupdate=func.now()`
                 },
                 synchronize_session=False,
@@ -121,47 +166,12 @@ class DatabaseClient:
         else:
             print(f"No update: symbol '{symbol}' not found")
 
-    def update_rps(self, symbol, year, revenue_per_share):
-        try:
-            row = StockHistoryTable(
-                symbol=symbol, year=year, revenue_per_share=revenue_per_share
-            )
-            self.session.add(row)
-            self.session.commit()
-            return True
-        except IntegrityError:
-            print("IntegrityError")
-            self.session.rollback()
-            return False
-
-    def update(self, symbol, year):
-        try:
-            # self.session.query(StockTable).filter(StockTable.symbol == symbol, StockTable.year == year).delete()
-            row = StockHistoryTable(symbol=symbol, year=year)
-            self.session.add(row)
-            self.session.commit()
-            return True
-        except IntegrityError:
-            print("IntegrityError")
-            self.session.rollback()
-            return False
-
-    def print_table(self):
-        df = pd.read_sql_table("stock", con=self.engine)
+    def print_table(self, table):
+        df = pd.read_sql_table(table, con=self.engine)
         print(df)
 
     def does_symbol_exist(self, symbol):
         return (
-            self.session.query(StockHistoryTable)
-            .filter(StockHistoryTable.symbol == symbol)
-            .first()
-            is not None
-        )
-
-    def does_symbol_and_year_exist(self, symbol, year):
-        return (
-            self.session.query(StockHistoryTable)
-            .filter(StockHistoryTable.symbol == symbol, StockHistoryTable.year == year)
-            .first()
+            self.session.query(Company).filter(Company.symbol == symbol).first()
             is not None
         )
