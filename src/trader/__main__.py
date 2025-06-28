@@ -95,4 +95,5 @@ if __name__ == "__main__":
             metrics,
         )
 
-    # db.print_table()
+    # db.print_table("companies")
+    # db.print_table("metric_snapshots")
