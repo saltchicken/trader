@@ -76,11 +76,12 @@ if __name__ == "__main__":
 
     for symbol in client.get_all_stocks():
         print(symbol)
+        if db.was_updated_today(symbol):
+            print(f"{symbol} already updated today. Skipping.")
+            continue
+
         metrics = client.get_metrics(symbol)
-        db.daily_update(
-            symbol,
-            metrics,
-        )
+        db.daily_update(symbol, metrics["metric"])
 
     # db.print_table("companies")
     # db.print_table("metric_snapshots")
