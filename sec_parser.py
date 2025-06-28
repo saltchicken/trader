@@ -2,6 +2,8 @@ import os
 from sec_edgar_downloader import Downloader
 import re
 
+import trafilatura
+
 # dl.get("10-K", "AAPL", limit=1)
 
 
@@ -61,7 +63,24 @@ if __name__ == "__main__":
         os.makedirs(documents_path)
 
     for i, doc in enumerate(documents):
+        match = re.search(r'<TEXT>\s*(<HTML>.*)', doc, re.DOTALL | re.IGNORECASE)
+        if match:
+            html_part = match.group(1)
+        else:
+            raise ValueError("HTML content not found in the file.")
+
+# Step 3: Use trafilatura to extract structured content
+        extracted = trafilatura.extract(html_part)
+        print(extracted)
+        with open(
+            f"{documents_path}/document_{i + 1}_converted.html", "w", encoding="utf-8"
+        ) as out_file:
+            out_file.write(extracted)
+
         with open(
             f"{documents_path}/document_{i + 1}.html", "w", encoding="utf-8"
         ) as out_file:
             out_file.write(doc)
+
+
+
