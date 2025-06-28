@@ -24,6 +24,7 @@ class Trader:
         self.client = FinanceClient()
         self.db = DatabaseClient("stock_data")
 
+    # TODO: I want this to check if each symbol doesn't already exist in the database
     def update_symbols(self):
         symbols = self.client.get_all_stocks()
         self.db.update_symbols(symbols)
@@ -41,19 +42,28 @@ class Trader:
 
 if __name__ == "__main__":
     trader = Trader()
+    trader.update_symbols()
+
+    trader.daily_update()
+
+    # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
+
+    trader.db.print_table("companies")
+    trader.db.print_table("metric_snapshots")
+    trader.db.print_table("current_metrics")
 
     def quote_history_test():
-        data = client.get_quote_history("T", "10y")
+        data = trader.client.get_quote_history("T", "10y")
         data["SMA_20"] = ta.trend.sma_indicator(data["Close"], window=20)
         print(data)
 
     def plot_close_data():
-        data = client.get_quote_history("T", "10y")
+        data = trader.client.get_quote_history("T", "10y")
         plt.plot(data["Close"])
         plt.show()
 
     def filings_test():
-        filings = client.get_filings("PSNL", "2022-01-01", "2025-12-31")
+        filings = trader.client.get_filings("PSNL", "2022-01-01", "2025-12-31")
 
         target_form = "8-K"
         target_filings = [f for f in filings if f["form"] == target_form]
@@ -64,32 +74,12 @@ if __name__ == "__main__":
         print(unique_forms)
 
     def ic_report():
-        financials = client.get_financials("PSNL")
+        financials = trader.client.get_financials("PSNL")
         df = pd.DataFrame(financials)
         for row in df["data"]:
             print(row["year"])
             pprint(row["report"]["ic"])
 
     def basic_financials():
-        financials = client.client.company_basic_financials("PSNL", "all")
+        financials = trader.client.client.company_basic_financials("PSNL", "all")
         pprint(financials)
-
-        # symbol_to_check = "CLOV"
-        #
-        # if symbol_to_check in df_filtered["symbol"].values:
-        #     print(f"{symbol_to_check} exists in the list.")
-        # else:
-        #     print(f"{symbol_to_check} does NOT exist in the list.")
-
-        # print(df_filtered[["symbol", "description", "mic"]].head())
-        #
-
-    trader.update_symbols()
-
-    trader.daily_update()
-
-    # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
-
-    trader.db.print_table("companies")
-    trader.db.print_table("metric_snapshots")
-    trader.db.print_table("current_metrics")
