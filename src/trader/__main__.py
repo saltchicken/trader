@@ -18,9 +18,29 @@ main_dir = os.path.dirname(os.path.abspath(sys.modules["__main__"].__file__))
 style_path = os.path.join(main_dir, "dark.mplstyle")
 plt.style.use(style_path)
 
+
+class Trader:
+    def __init__(self):
+        self.client = FinanceClient()
+        self.db = DatabaseClient("stock_data")
+
+    def update_symbols(self):
+        symbols = self.client.get_all_stocks()
+        self.db.update_symbols(symbols)
+
+    def daily_update(self):
+        for symbol in self.client.get_all_stocks():
+            print(symbol)
+            if self.db.was_updated_today(symbol):
+                print(f"{symbol} already updated today. Skipping.")
+                continue
+
+            metrics = self.client.get_metrics(symbol)
+            self.db.daily_update(symbol, metrics["metric"])
+
+
 if __name__ == "__main__":
-    client = FinanceClient()
-    db = DatabaseClient("stock_data")
+    trader = Trader()
 
     def quote_history_test():
         data = client.get_quote_history("T", "10y")
@@ -64,25 +84,12 @@ if __name__ == "__main__":
         # print(df_filtered[["symbol", "description", "mic"]].head())
         #
 
-    db.update_symbols(client.get_all_stocks())
+    trader.update_symbols()
+
+    trader.daily_update()
 
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
-    # db.update_revenue_per_share_annual(
-    #     "AAPL", client.get_metrics("AAPL")["metric"]["revenuePerShareAnnual"]
-    # )
-
-    # client.print_metrics("AAPL")
-
-    for symbol in client.get_all_stocks():
-        print(symbol)
-        if db.was_updated_today(symbol):
-            print(f"{symbol} already updated today. Skipping.")
-            continue
-
-        metrics = client.get_metrics(symbol)
-        db.daily_update(symbol, metrics["metric"])
-
-    # db.print_table("companies")
-    # db.print_table("metric_snapshots")
-    # db.print_table("current_metrics")
+    trader.db.print_table("companies")
+    trader.db.print_table("metric_snapshots")
+    trader.db.print_table("current_metrics")
