@@ -42,22 +42,6 @@ if __name__ == "__main__":
         unique_forms = df["form"].unique().tolist()
         print(unique_forms)
 
-    def metrics_test():
-        metrics = client.get_metrics("PSNL")
-        df = pd.DataFrame(metrics)
-        print(df["metric"]["52WeekHigh"])
-        # unique_metrics = df["metric"].unique().tolist()
-        # print(unique_metrics)
-        # print(df.columns.tolist())
-
-    def interesting_metrics(symbol):
-        metrics = client.get_metrics(symbol)
-        df = pd.DataFrame(metrics)
-        result = {}
-        result["52WeekHigh"] = df["metric"]["52WeekHigh"]
-        result["revenuePerShareAnnual"] = df["metric"]["revenuePerShareAnnual"]
-        print(result)
-
     def ic_report():
         financials = client.get_financials("PSNL")
         df = pd.DataFrame(financials)
@@ -78,12 +62,13 @@ if __name__ == "__main__":
 
         # print(df_filtered[["symbol", "description", "mic"]].head())
         #
+
     def update_database_with_rps(symbol):
         # if db.does_symbol_and_year_exist(symbol, 2022):
         if db.does_symbol_exist(symbol):
             print(f"{symbol} already exists in database")
             return
-        
+
         rps = client.get_revenue_per_share_history(symbol)
         if not rps:
             print(f"No RPS data for {symbol}")
@@ -92,10 +77,22 @@ if __name__ == "__main__":
         for entry in rps:
             db.update_rps(symbol, entry["Year"], entry["Revenue Per Share"])
 
-    # for symbol in client.get_all_stocks():
-    #     print(symbol)
-    #     update_database_with_rps(symbol["symbol"])
+    # db.update_symbols(client.get_all_stocks())
 
-    db.print_table()
-    # print(db.does_symbol_and_year_exist("FL", 2022))
+    # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
+    # db.update_revenue_per_share_annual(
+    #     "AAPL", client.get_metrics("AAPL")["metric"]["revenuePerShareAnnual"]
+    # )
+
+    # client.print_metrics("AAPL")
+
+    for symbol in client.get_all_stocks():
+        print(symbol)
+        metrics = client.get_metrics(symbol)
+        db.daily_update(
+            symbol,
+            metrics,
+        )
+
+    # db.print_table()
