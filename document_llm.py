@@ -27,30 +27,31 @@ def send_to_gemma(chunk, prompt_suffix="Please summarize this chunk:"):
     if (
         "does not contain any information" in result.lower()
         or "provided text does not include" in result.lower()
+        or "unable to extract" in result.lower()
     ):
         return ""
     return response.json().get("response", "")
 
 
-def send_to_gemma_yes_or_no(chunk, question):
-    prompt = (
-        f"Text:\n{chunk}\n\n"
-        f"Question: {question}\n"
-        "Answer with only 'Yes' or 'No' (no explanation):"
-    )
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": "gemma:7b", "prompt": prompt, "stream": False},
-    )
-    answer = response.json().get("response", "").strip()
-    # Clean response to just yes/no
-    if answer.lower().startswith("yes"):
-        return "Yes"
-    elif answer.lower().startswith("no"):
-        return "No"
-    else:
-        # fallback or uncertain
-        return answer
+# def send_to_gemma_yes_or_no(chunk, question):
+#     prompt = (
+#         f"Text:\n{chunk}\n\n"
+#         f"Question: {question}\n"
+#         "Answer with only 'Yes' or 'No' (no explanation):"
+#     )
+#     response = requests.post(
+#         "http://localhost:11434/api/generate",
+#         json={"model": "gemma:7b", "prompt": prompt, "stream": False},
+#     )
+#     answer = response.json().get("response", "").strip()
+#     # Clean response to just yes/no
+#     if answer.lower().startswith("yes"):
+#         return "Yes"
+#     elif answer.lower().startswith("no"):
+#         return "No"
+#     else:
+#         # fallback or uncertain
+#         return answer
 
 
 def chunk_text(text, max_tokens=7000, overlap_tokens=200):
@@ -85,17 +86,12 @@ chunks = chunk_text(document)
 summaries = []
 for i, chunk in enumerate(chunks):
     print(f"Processing chunk {i + 1}/{len(chunks)}")
-    #
-    answer = send_to_gemma_yes_or_no(
-        chunk, question="Does this chunk refer to who the subject of this document is?"
+    summary = send_to_gemma(
+        chunk,
+        prompt_suffix="Tell me what this chunk has to say about the main company involved.",
     )
-    if answer == "Yes":
-        summary = send_to_gemma(
-            chunk,
-            prompt_suffix="Tell me what this chunk has to say about who is the subject of the document.",
-        )
-        # print("Summary:", summary)
-        summaries.append(summary)
+    # print("Summary:", summary)
+    summaries.append(summary)
 
 
 print(summaries)
@@ -107,6 +103,6 @@ combined_summary = "\n".join(summaries)
 # print("Combined summary:\n", combined_summary)
 final_statement = send_to_gemma(
     combined_summary,
-    prompt_suffix="Who is the subject of the document",
+    prompt_suffix="What is the main company involved",
 )
 print(final_statement)
