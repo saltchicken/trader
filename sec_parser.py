@@ -19,7 +19,8 @@ if __name__ == "__main__":
     parser = SECParser(base_path)
 
     symbol = "AAPL"
-    doc_type = "10-K"
+    # doc_type = "10-K"
+    doc_type = "SC 13G"
 
     parser.get_docs(symbol, doc_type, limit=1)
     path = os.path.join(base_path, "sec-edgar-filings", symbol, doc_type)
