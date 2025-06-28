@@ -1,6 +1,6 @@
 import requests
 
-file_path = "document_1.html"  # Replace with your actual file name
+file_path = "sec-edgar-filings/documents/document_1_converted.html"  # Replace with your actual file name
 
 # with open(file_path, "r", encoding="utf-8") as f:
 #     text = f.read()
@@ -13,7 +13,12 @@ def send_to_gemma(chunk, prompt_suffix="Please summarize this chunk:"):
     prompt = f"{chunk}\n\n{prompt_suffix}"
     response = requests.post(
         "http://localhost:11434/api/generate",
-        json={"model": "gemma:7b", "prompt": prompt, "stream": False},
+        json={
+            "model": "gemma:7b",
+            "prompt": prompt,
+            "stream": False,
+            "options": {"num_ctx": 8192},
+        },
     )
     result = response.json().get("response", "")
     # Check if teh phrase provided text does not contain any information
