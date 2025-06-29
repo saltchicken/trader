@@ -25,6 +25,16 @@ from zoneinfo import ZoneInfo  # Python 3.9+
 
 Base = declarative_base()
 
+# core_metrics = [
+#     "52WeekHigh", "52WeekLow", "3MonthAverageTradingVolume", "beta",
+#     "epsTTM", "epsGrowth5Y", "revenueGrowth5Y", "focfCagr5Y",
+#     "netProfitMarginTTM", "grossMarginTTM", "operatingMarginTTM",
+#     "roeTTM", "roaTTM", "roiTTM", "cashFlowPerShareTTM",
+#     "peTTM", "pfcfShareTTM", "psTTM", "pbTTM",
+#     "currentDividendYieldTTM", "dividendGrowthRate5Y", "payoutRatioTTM",
+#     "longTermDebt/equityQuarterly", "currentRatioQuarterly"
+# ]
+
 KEY_MAPPING = {
     "52WeekHigh": "week52_high",
     "52WeekHighDate": "week52_high_date",
@@ -32,6 +42,27 @@ KEY_MAPPING = {
     "3MonthAverageTradingVolume": "month3_average_trading_volume",
     "dividendPerShareTTM": "dividend_per_share_ttm",
     "10DayAverageTradingVolume": "day10_average_trading_volume",
+    "beta": "beta",
+    "epsTTM": "eps_ttm",
+    "epsGrowth5Y": "eps_growth_5y",
+    "revenueGrowth5Y": "revenue_growth_5y",
+    "focfCagr5Y": "focf_cagr_5y",
+    "netProfitMarginTTM": "net_profit_margin_ttm",
+    "grossMarginTTM": "gross_margin_ttm",
+    "operatingMarginTTM": "operating_margin_ttm",
+    "roeTTM": "roe_ttm",
+    "roaTTM": "roa_ttm",
+    "roiTTM": "roi_ttm",
+    "cashFlowPerShareTTM": "cash_flow_per_share_ttm",
+    "peTTM": "pe_ttm",
+    "pfcfShareTTM": "pfcf_share_ttm",
+    "psTTM": "ps_ttm",
+    "pbTTM": "pb_ttm",
+    "currentDividendYieldTTM": "current_dividend_yield_ttm",
+    "dividendGrowthRate5Y": "dividend_growth_rate_5y",
+    "payoutRatioTTM": "payout_ratio_ttm",
+    "longTermDebt/equityQuarterly": "long_term_debt_equity_quarterly",
+    "currentRatioQuarterly": "current_ratio_quarterly"
 }
 
 
@@ -60,6 +91,27 @@ class MetricSnapshot(Base):
     month3_average_trading_volume = Column(Float)
     dividend_per_share_ttm = Column(Float)
     day10_average_trading_volume = Column(Float)
+    beta = Column(Float)
+    eps_ttm = Column(Float)
+    eps_growth_5y = Column(Float)
+    revenue_growth_5y = Column(Float)
+    focf_cagr_5y = Column(Float)
+    net_profit_margin_ttm = Column(Float)
+    gross_margin_ttm = Column(Float)
+    operating_margin_ttm = Column(Float)
+    roe_ttm = Column(Float)
+    roa_ttm = Column(Float)
+    roi_ttm = Column(Float)
+    cash_flow_per_share_ttm = Column(Float)
+    pe_ttm = Column(Float)
+    pfcf_share_ttm = Column(Float)
+    ps_ttm = Column(Float)
+    pb_ttm = Column(Float)
+    current_dividend_yield_ttm = Column(Float)
+    dividend_growth_rate_5y = Column(Float)
+    payout_ratio_ttm = Column(Float)
+    long_term_debt_equity_quarterly = Column(Float)
+    current_ratio_quarterly = Column(Float)
 
     company = relationship("Company", back_populates="snapshots")
 
