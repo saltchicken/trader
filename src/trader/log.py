@@ -12,4 +12,23 @@ log_path = os.path.join(script_dir, f"{script_name}.log")
 
 # Configure loguru
 logger.remove()  # Remove default stderr handler
-logger.add(log_path, rotation="1 MB", retention="7 days", compression="zip", format="{time:YYYY-MM-DDTHH:mm:ssZ!UTC} | {level} | {message}")
+logger.add(
+    log_path,
+    rotation="1 MB",
+    retention="7 days",
+    compression="zip",
+    format="{time:YYYY-MM-DDTHH:mm:ssZ!UTC} | {level} | {message}",
+)
+
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        # Let KeyboardInterrupt pass silently
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.opt(exception=(exc_type, exc_value, exc_traceback)).error(
+        "Uncaught exception"
+    )
+
+
+sys.excepthook = handle_exception
