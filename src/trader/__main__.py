@@ -1,5 +1,5 @@
 from finance_client import FinanceClient
-from database import DatabaseClient
+from database import DatabaseClient, Company
 import numpy as np
 import pandas as pd
 
@@ -65,15 +65,21 @@ class Trader:
 
 if __name__ == "__main__":
     trader = Trader()
-    trader.update_symbols()
-
-    trader.daily_update()
+    # trader.update_symbols()
+    #
+    # trader.daily_update()
 
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
     # trader.db.print_table("companies")
     # trader.db.print_table("metric_snapshots")
     # trader.db.print_table("current_metrics")
+    company = trader.db.session.query(Company).filter_by(symbol="AAPL").first()
+
+    if company:
+        snapshots = company.snapshots
+        for snapshot in snapshots:
+            print(snapshot.timestamp, snapshot.week52_high)
 
     def quote_history_test():
         data = trader.client.get_quote_history("T", "10y")
