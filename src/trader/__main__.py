@@ -10,13 +10,21 @@ import matplotlib.pyplot as plt
 import ta
 import os
 import sys
-
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from pprint import pprint
 
 main_dir = os.path.dirname(os.path.abspath(sys.modules["__main__"].__file__))
 style_path = os.path.join(main_dir, "dark.mplstyle")
 plt.style.use(style_path)
+
+
+def is_within_allowed_update_window():
+    now = datetime.now(ZoneInfo("America/Los_Angeles"))
+    if now.hour >= 18 or now.hour < 2:
+        return True
+    return False
 
 
 class Trader:
@@ -39,10 +47,16 @@ class Trader:
             print("No new symbols to add.")
 
     def daily_update(self):
+        if not is_within_allowed_update_window():
+            print("Not within allowed update window. Skipping.")
+            return
+
         for symbol in self.db.get_all_symbols():
             print(symbol)
-            if self.db.was_updated_today(symbol):
-                print(f"{symbol} already updated today. Skipping.")
+            if self.db.was_updated_in_nightly_window(symbol):
+                print(
+                    f"{symbol} already updated during the current nightly window. Skipping."
+                )
                 continue
 
             metrics = self.client.get_metrics(symbol)
