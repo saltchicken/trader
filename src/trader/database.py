@@ -23,6 +23,8 @@ from datetime import date
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # Python 3.9+
 
+from log import logger
+
 Base = declarative_base()
 
 # core_metrics = [
@@ -172,7 +174,7 @@ class DatabaseClient:
         )
 
     def update_symbols(self, companies):
-        print(companies)
+        logger.debug(companies)
         try:
             for company in companies:
                 row = Company(
@@ -182,7 +184,7 @@ class DatabaseClient:
             self.session.commit()
             return True
         except IntegrityError:
-            print("IntegrityError")
+            logger.error("IntegrityError")
             self.session.rollback()
             return False
 
@@ -190,7 +192,7 @@ class DatabaseClient:
         # Ensure all expected keys exist in metrics
         for key in KEY_MAPPING:
             if key not in metrics:
-                print(f"Missing key: {key}")
+                logger.warning(f"Missing key: {key}")
                 metrics[key] = np.nan
 
         # Build kwargs for MetricSnapshot constructor
@@ -203,12 +205,12 @@ class DatabaseClient:
                     try:
                         value = datetime.strptime(value, "%Y-%m-%d").date()
                     except ValueError:
-                        print(f"Invalid date format for 52WeekHighDate: {value}")
+                        logger.error(f"Invalid date format for 52WeekHighDate: {value}")
                         value = None
                 elif isinstance(value, datetime):
                     value = value.date()
                 elif not isinstance(value, date):
-                    print(
+                    logger.error(
                         f"Unexpected type for 52WeekHighDate: {type(value)} This is bad"
                     )
                     value = None  # fallback for unexpected types
