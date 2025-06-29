@@ -6,6 +6,7 @@ from sqlalchemy import (
     String,
     Float,
     DateTime,
+    Date,
     func,
     ForeignKey,
 )
@@ -19,12 +20,18 @@ import numpy as np
 pd.set_option("display.float_format", "{:.2f}".format)
 
 from datetime import date
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo  # Python 3.9+
 
 Base = declarative_base()
 
 KEY_MAPPING = {
     "52WeekHigh": "week52_high",
+    "52WeekHighDate": "week52_high_date",
+    "52WeekLow": "week52_low",
     "3MonthAverageTradingVolume": "month3_average_trading_volume",
+    "dividendPerShareTTM": "dividend_per_share_ttm",
+    "10DayAverageTradingVolume": "day10_average_trading_volume",
 }
 
 
@@ -48,8 +55,11 @@ class MetricSnapshot(Base):
     timestamp = Column(DateTime, default=func.now())
     # last_updated = Column(DateTime, default=func.now(), onupdate=func.now())
     week52_high = Column(Float)
-    revenue_per_share_annual = Column(Float)
+    week52_high_date = Column(Date)
+    week52_low = Column(Float)
     month3_average_trading_volume = Column(Float)
+    dividend_per_share_ttm = Column(Float)
+    day10_average_trading_volume = Column(Float)
 
     company = relationship("Company", back_populates="snapshots")
 
@@ -78,6 +88,36 @@ class DatabaseClient:
     #     self.session.execute(
     #         text(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_type}")
     #     )
+    def was_updated_in_nightly_window(self, symbol):
+        now = datetime.now(ZoneInfo("America/Los_Angeles"))
+
+        # Determine the 6PM start time
+        if (
+            now.hour < 2
+        ):  # Early morning (e.g., 1AM on June 29 → window started June 28, 6PM)
+            window_start = (now - timedelta(days=1)).replace(
+                hour=18, minute=0, second=0, microsecond=0
+            )
+        else:  # Evening of the same day
+            window_start = now.replace(hour=18, minute=0, second=0, microsecond=0)
+
+        window_end = window_start + timedelta(hours=8)  # Up to 2AM next day
+
+        # Convert to UTC for database query
+        start_utc = window_start.astimezone(ZoneInfo("UTC"))
+        end_utc = window_end.astimezone(ZoneInfo("UTC"))
+
+        # Check if symbol has already been updated during this window
+        return (
+            self.session.query(MetricSnapshot)
+            .filter(
+                MetricSnapshot.symbol == symbol,
+                MetricSnapshot.timestamp >= start_utc,
+                MetricSnapshot.timestamp < end_utc,
+            )
+            .first()
+            is not None
+        )
 
     def update_symbols(self, companies):
         print(companies)
@@ -105,7 +145,23 @@ class DatabaseClient:
         snapshot_data = {"symbol": symbol}
 
         for key, attr_name in KEY_MAPPING.items():
-            snapshot_data[attr_name] = metrics[key]
+            value = metrics[key]
+            if key == "52WeekHighDate":
+                if isinstance(value, str):
+                    try:
+                        value = datetime.strptime(value, "%Y-%m-%d").date()
+                    except ValueError:
+                        print(f"Invalid date format for 52WeekHighDate: {value}")
+                        value = None
+                elif isinstance(value, datetime):
+                    value = value.date()
+                elif not isinstance(value, date):
+                    print(
+                        f"Unexpected type for 52WeekHighDate: {type(value)} This is bad"
+                    )
+                    value = None  # fallback for unexpected types
+
+            snapshot_data[attr_name] = value
 
         # Optionally add timestamp if you want to specify it:
         # snapshot_data["timestamp"] = some_datetime_object
@@ -153,15 +209,6 @@ class DatabaseClient:
     #         self.session.commit()
     #     else:
     #         print(f"No update: symbol '{symbol}' not found")
-
-    def was_updated_today(self, symbol):
-        latest_snapshot = (
-            self.session.query(MetricSnapshot)
-            .filter(MetricSnapshot.symbol == symbol)
-            .order_by(MetricSnapshot.timestamp.desc())
-            .first()
-        )
-        return latest_snapshot and latest_snapshot.timestamp.date() == date.today()
 
     # Annual
     def update_revenue_per_share_annual(self, symbol, revenue_per_share_annual):
