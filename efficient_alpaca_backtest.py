@@ -223,7 +223,7 @@ class SimpleVolumeStrategy(Strategy):
 
         current_ts = self.dates[-1]  # float seconds since epoch
         current_date = datetime.datetime.fromtimestamp(current_ts)
-        
+
         try:
             avg_volume = self.volume_ma[-1]
         except (IndexError, TypeError):
@@ -260,58 +260,62 @@ def get_all_stock_data(symbols, days_back=730):
     """Download stock data for multiple symbols using a single Alpaca API call"""
     try:
         print(f"📥 Downloading data for {symbols} from Alpaca in single API call...")
-        
+
         # Initialize the client
         client = StockHistoricalDataClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
-            secret_key=os.getenv("APCA_API_SECRET_KEY")
+            secret_key=os.getenv("APCA_API_SECRET_KEY"),
         )
-        
+
         # Calculate start and end dates
         end_date = datetime.datetime.now()
         start_date = end_date - datetime.timedelta(days=days_back)
-        
+
         # Create request for daily bars for all symbols at once
         request_params = StockBarsRequest(
             symbol_or_symbols=symbols,
             timeframe=TimeFrame.Day,
             start=start_date,
-            end=end_date
+            end=end_date,
         )
-        
+
         # Get the data for all symbols
         bars = client.get_stock_bars(request_params)
-        
+
         if not bars.data:
             raise ValueError("No data found for any symbols")
-        
+
         # Convert to dictionary of DataFrames
         stock_data = {}
-        
+
         for symbol in symbols:
             if symbol not in bars.data:
                 print(f"⚠️ No data found for symbol {symbol}")
                 stock_data[symbol] = None
                 continue
-                
+
             # Convert to DataFrame
             data_list = []
             for bar in bars.data[symbol]:
-                data_list.append({
-                    'timestamp': bar.timestamp,
-                    'Open': float(bar.open),
-                    'High': float(bar.high),
-                    'Low': float(bar.low),
-                    'Close': float(bar.close),
-                    'Volume': int(bar.volume)
-                })
-            
+                data_list.append(
+                    {
+                        "timestamp": bar.timestamp,
+                        "Open": float(bar.open),
+                        "High": float(bar.high),
+                        "Low": float(bar.low),
+                        "Close": float(bar.close),
+                        "Volume": int(bar.volume),
+                    }
+                )
+
             data = pd.DataFrame(data_list)
-            data.set_index('timestamp', inplace=True)
-            
+            data.set_index("timestamp", inplace=True)
+
             # Ensure we have the required columns
             required_columns = ["Open", "High", "Low", "Close", "Volume"]
-            missing_columns = [col for col in required_columns if col not in data.columns]
+            missing_columns = [
+                col for col in required_columns if col not in data.columns
+            ]
             if missing_columns:
                 print(f"⚠️ Missing required columns for {symbol}: {missing_columns}")
                 stock_data[symbol] = None
@@ -335,7 +339,7 @@ def get_all_stock_data(symbols, days_back=730):
 
             print(f"✅ Downloaded {len(data)} rows of data for {symbol}")
             stock_data[symbol] = data
-        
+
         return stock_data
 
     except APIError as e:
@@ -351,7 +355,7 @@ def get_stock_data(symbol, stock_data_cache=None):
     if stock_data_cache is None:
         print(f"❌ No cached data available for {symbol}")
         return None
-    
+
     return stock_data_cache.get(symbol)
 
 
@@ -409,11 +413,13 @@ def main():
     # Check environment variables
     if not os.getenv("APCA_API_KEY_ID") or not os.getenv("APCA_API_SECRET_KEY"):
         print("❌ Missing Alpaca API credentials in environment variables")
-        print("   Please ensure APCA_API_KEY_ID and APCA_API_SECRET_KEY are set in your .env file")
+        print(
+            "   Please ensure APCA_API_KEY_ID and APCA_API_SECRET_KEY are set in your .env file"
+        )
         return
 
     # Test symbols - using highly liquid stocks
-    symbols = ["AAPL", "MSFT", "GOOGL"]
+    symbols = ["AAPL", "MSFT", "GOOGL", "PSNL"]
     strategies = [
         ("Simple Volume", SimpleVolumeStrategy),
         ("Volume Breakout", VolumeBreakoutStrategy),
@@ -423,14 +429,16 @@ def main():
     # Fetch all stock data in a single API call
     print(f"\n🔄 Fetching data for all symbols...")
     stock_data_cache = get_all_stock_data(symbols)
-    
+
     if stock_data_cache is None:
         print("❌ Failed to fetch stock data. Exiting.")
         return
 
     # Count successful downloads
     successful_symbols = [s for s in symbols if stock_data_cache.get(s) is not None]
-    print(f"✅ Successfully loaded data for {len(successful_symbols)} out of {len(symbols)} symbols")
+    print(
+        f"✅ Successfully loaded data for {len(successful_symbols)} out of {len(symbols)} symbols"
+    )
 
     all_results = {}
 
@@ -439,7 +447,7 @@ def main():
         if stock_data_cache.get(symbol) is None:
             print(f"\n⏭️ Skipping {symbol} - no data available")
             continue
-            
+
         print(f"\n🎯 ANALYZING {symbol}")
         print("-" * 40)
 
