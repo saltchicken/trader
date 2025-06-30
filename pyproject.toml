@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trader"
+version = "0.1.0"
+dependencies = []
+
+[project.scripts]
+trader = "trader.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
