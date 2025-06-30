@@ -21,20 +21,18 @@ style_path = os.path.join(main_dir, "dark.mplstyle")
 plt.style.use(style_path)
 
 
-
-
-
-
 if __name__ == "__main__":
     trader = Trader()
     # trader.update_symbols()
     # #
     # trader.daily_update()
+    latest = trader.get_latest()
+    print(latest)
 
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
     # trader.db.print_table("companies")
-    trader.db.print_table("metric_snapshots")
+    # trader.db.print_table("metric_snapshots")
     # trader.db.print_table("current_metrics")
     company = trader.db.session.query(Company).filter_by(symbol="AAPL").first()
 
