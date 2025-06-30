@@ -26,6 +26,12 @@ logger.add(
     format="{time:YYYY-MM-DDTHH:mm:ssZ!UTC} | {level} | {message}",
 )
 
+logger.add(
+    sys.stdout,
+    format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}",
+    colorize=True,
+)
+
 # Get email configuration from environment
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASS = os.getenv("EMAIL_PASS")
