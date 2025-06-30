@@ -3,3 +3,4 @@ __pycache__
 sec-edgar-filings
 *.db
 stock_data.db
+*.log
