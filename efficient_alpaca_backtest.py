@@ -256,10 +256,10 @@ class SimpleVolumeStrategy(Strategy):
                 self.entry_bar = None
 
 
-def get_stock_data(symbol, days_back=730):
-    """Download stock data using Alpaca API"""
+def get_all_stock_data(symbols, days_back=730):
+    """Download stock data for multiple symbols using a single Alpaca API call"""
     try:
-        print(f"📥 Downloading data for {symbol} from Alpaca...")
+        print(f"📥 Downloading data for {symbols} from Alpaca in single API call...")
         
         # Initialize the client
         client = StockHistoricalDataClient(
@@ -271,74 +271,98 @@ def get_stock_data(symbol, days_back=730):
         end_date = datetime.datetime.now()
         start_date = end_date - datetime.timedelta(days=days_back)
         
-        # Create request for daily bars
+        # Create request for daily bars for all symbols at once
         request_params = StockBarsRequest(
-            symbol_or_symbols=[symbol],
+            symbol_or_symbols=symbols,
             timeframe=TimeFrame.Day,
             start=start_date,
             end=end_date
         )
         
-        # Get the data
+        # Get the data for all symbols
         bars = client.get_stock_bars(request_params)
         
-        if not bars.data or symbol not in bars.data:
-            raise ValueError(f"No data found for symbol {symbol}")
+        if not bars.data:
+            raise ValueError("No data found for any symbols")
         
-        # Convert to DataFrame
-        data_list = []
-        for bar in bars.data[symbol]:
-            data_list.append({
-                'timestamp': bar.timestamp,
-                'Open': float(bar.open),
-                'High': float(bar.high),
-                'Low': float(bar.low),
-                'Close': float(bar.close),
-                'Volume': int(bar.volume)
-            })
+        # Convert to dictionary of DataFrames
+        stock_data = {}
         
-        data = pd.DataFrame(data_list)
-        data.set_index('timestamp', inplace=True)
+        for symbol in symbols:
+            if symbol not in bars.data:
+                print(f"⚠️ No data found for symbol {symbol}")
+                stock_data[symbol] = None
+                continue
+                
+            # Convert to DataFrame
+            data_list = []
+            for bar in bars.data[symbol]:
+                data_list.append({
+                    'timestamp': bar.timestamp,
+                    'Open': float(bar.open),
+                    'High': float(bar.high),
+                    'Low': float(bar.low),
+                    'Close': float(bar.close),
+                    'Volume': int(bar.volume)
+                })
+            
+            data = pd.DataFrame(data_list)
+            data.set_index('timestamp', inplace=True)
+            
+            # Ensure we have the required columns
+            required_columns = ["Open", "High", "Low", "Close", "Volume"]
+            missing_columns = [col for col in required_columns if col not in data.columns]
+            if missing_columns:
+                print(f"⚠️ Missing required columns for {symbol}: {missing_columns}")
+                stock_data[symbol] = None
+                continue
+
+            # Remove any rows with NaN values or zero volume
+            data = data.dropna()
+            data = data[data["Volume"] > 0]
+
+            # Add VWAP calculation
+            data["VWAP"] = (
+                data["Volume"] * (data["High"] + data["Low"] + data["Close"]) / 3
+            ).cumsum() / data["Volume"].cumsum()
+
+            data["CUSTOM"] = [None] * len(data)
+
+            if len(data) < 50:  # Need minimum data for analysis
+                print(f"⚠️ Insufficient data for {symbol}: only {len(data)} rows")
+                stock_data[symbol] = None
+                continue
+
+            print(f"✅ Downloaded {len(data)} rows of data for {symbol}")
+            stock_data[symbol] = data
         
-        # Ensure we have the required columns
-        required_columns = ["Open", "High", "Low", "Close", "Volume"]
-        missing_columns = [col for col in required_columns if col not in data.columns]
-        if missing_columns:
-            raise ValueError(f"Missing required columns: {missing_columns}")
-
-        # Remove any rows with NaN values or zero volume
-        data = data.dropna()
-        data = data[data["Volume"] > 0]
-
-        # Add VWAP calculation
-        data["VWAP"] = (
-            data["Volume"] * (data["High"] + data["Low"] + data["Close"]) / 3
-        ).cumsum() / data["Volume"].cumsum()
-
-        data["CUSTOM"] = [None] * len(data)
-
-        if len(data) < 50:  # Need minimum data for analysis
-            raise ValueError(f"Insufficient data: only {len(data)} rows")
-
-        print(f"✅ Downloaded {len(data)} rows of data for {symbol}")
-        return data
+        return stock_data
 
     except APIError as e:
-        print(f"❌ Alpaca API Error for {symbol}: {e}")
+        print(f"❌ Alpaca API Error: {e}")
         return None
     except Exception as e:
-        print(f"❌ Error downloading data for {symbol}: {e}")
+        print(f"❌ Error downloading data: {e}")
         return None
 
 
-def run_backtest(symbol, strategy_class, **kwargs):
+def get_stock_data(symbol, stock_data_cache=None):
+    """Get stock data for a single symbol from cache or return None"""
+    if stock_data_cache is None:
+        print(f"❌ No cached data available for {symbol}")
+        return None
+    
+    return stock_data_cache.get(symbol)
+
+
+def run_backtest(symbol, strategy_class, stock_data_cache=None, **kwargs):
     """Run backtest for a given symbol and strategy"""
     print(f"\n{'=' * 60}")
     print(f"🔍 Running {strategy_class.__name__} for {symbol}")
     print(f"{'=' * 60}")
 
-    # Get data
-    data = get_stock_data(symbol)
+    # Get data from cache
+    data = get_stock_data(symbol, stock_data_cache)
     if data is None:
         print(f"❌ Skipping {symbol} due to data issues")
         return None
@@ -396,10 +420,26 @@ def main():
         ("Volume Reversal", VolumeReversalStrategy),
     ]
 
+    # Fetch all stock data in a single API call
+    print(f"\n🔄 Fetching data for all symbols...")
+    stock_data_cache = get_all_stock_data(symbols)
+    
+    if stock_data_cache is None:
+        print("❌ Failed to fetch stock data. Exiting.")
+        return
+
+    # Count successful downloads
+    successful_symbols = [s for s in symbols if stock_data_cache.get(s) is not None]
+    print(f"✅ Successfully loaded data for {len(successful_symbols)} out of {len(symbols)} symbols")
+
     all_results = {}
 
     # Test each strategy on each symbol
     for symbol in symbols:
+        if stock_data_cache.get(symbol) is None:
+            print(f"\n⏭️ Skipping {symbol} - no data available")
+            continue
+            
         print(f"\n🎯 ANALYZING {symbol}")
         print("-" * 40)
 
@@ -407,7 +447,7 @@ def main():
 
         for strategy_name, strategy_class in strategies:
             print(f"\n📋 Testing {strategy_name} Strategy")
-            result = run_backtest(symbol, strategy_class)
+            result = run_backtest(symbol, strategy_class, stock_data_cache)
 
             if result is not None:
                 symbol_results[strategy_name] = result
@@ -450,25 +490,30 @@ def main():
     print(f"\n🔧 PARAMETER OPTIMIZATION EXAMPLE")
     print("-" * 50)
 
-    try:
-        opt_result = run_backtest(
-            "AAPL",
-            SimpleVolumeStrategy,
-            volume_threshold=[1.5, 1.6, 1.4, 2.0, 2.5, 3.0],
-            volume_period=[14, 15, 16, 17, 18, 19, 20, 25],
-            hold_days=[3, 5, 7, 10],
-        )
+    # Only run optimization if we have AAPL data
+    if stock_data_cache.get("AAPL") is not None:
+        try:
+            opt_result = run_backtest(
+                "AAPL",
+                SimpleVolumeStrategy,
+                stock_data_cache,
+                volume_threshold=[1.5, 1.6, 1.4, 2.0, 2.5, 3.0],
+                volume_period=[14, 15, 16, 17, 18, 19, 20, 25],
+                hold_days=[3, 5, 7, 10],
+            )
 
-        if opt_result is not None:
-            print(f"\n🎯 Optimized Parameters for AAPL:")
-            strategy = opt_result._strategy
-            print(f"   Volume Threshold: {strategy.volume_threshold}")
-            print(f"   Volume Period:    {strategy.volume_period}")
-            print(f"   Hold Days:        {strategy.hold_days}")
-            print(f"   Optimized Return: {opt_result['Return [%]']:.2f}%")
+            if opt_result is not None:
+                print(f"\n🎯 Optimized Parameters for AAPL:")
+                strategy = opt_result._strategy
+                print(f"   Volume Threshold: {strategy.volume_threshold}")
+                print(f"   Volume Period:    {strategy.volume_period}")
+                print(f"   Hold Days:        {strategy.hold_days}")
+                print(f"   Optimized Return: {opt_result['Return [%]']:.2f}%")
 
-    except Exception as e:
-        print(f"❌ Optimization failed: {e}")
+        except Exception as e:
+            print(f"❌ Optimization failed: {e}")
+    else:
+        print("⏭️ Skipping optimization - AAPL data not available")
 
     print(f"\n✅ Analysis complete!")
 
