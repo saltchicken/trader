@@ -1,1 +1,1 @@
-from trader import Trader
+from agent import Trader

@@ -1,6 +1,6 @@
 from finance_client import FinanceClient
 from database import DatabaseClient, Company
-from trader import Trader
+from agent import Trader
 import numpy as np
 import pandas as pd
 
