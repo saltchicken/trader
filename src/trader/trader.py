@@ -30,10 +30,9 @@ class Trader:
             logger.debug("No new symbols to add.")
 
     def daily_update(self):
-        print("hello")
-        # if not self.is_within_allowed_update_window():
-        #     logger.error("Not within allowed update window. Skipping.")
-        #     return
+        if not self.is_within_allowed_update_window():
+            logger.error("Not within allowed update window. Skipping.")
+            return
 
         for symbol in self.db.get_all_symbols():
             logger.debug(symbol)
