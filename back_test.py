@@ -4,6 +4,8 @@ import numpy as np
 from backtesting import Backtest, Strategy
 from backtesting.lib import crossover
 import warnings
+import datetime
+import ta
 
 warnings.filterwarnings("ignore")
 
@@ -203,11 +205,24 @@ class SimpleVolumeStrategy(Strategy):
             volume_sma, self.data.Volume, self.volume_period, name="Volume_MA"
         )
         self.entry_bar = None
+        dates_as_floats = (
+            self.data.df.index.astype(np.int64) / 1e9
+        )  # nanoseconds to seconds
+        self.dates = self.I(lambda: dates_as_floats, name="DateIndex")
 
     def next(self):
         if len(self.data) < self.volume_period:
             return
 
+        # print(self.data["VWAP"][-1])
+        # print(self.data["CUSTOM"])
+        # print(len(self.data["CUSTOM"]))
+        # print(self.dates[-1])
+        current_ts = self.dates[-1]  # float seconds since epoch
+        # Convert back to datetime if needed
+
+        current_date = datetime.datetime.fromtimestamp(current_ts)
+        # print(f"Current date: {current_date}")
         try:
             avg_volume = self.volume_ma[-1]
         except (IndexError, TypeError):
@@ -259,6 +274,13 @@ def get_stock_data(symbol, period="2y"):
         # Remove any rows with NaN values or zero volume
         data = data.dropna()
         data = data[data["Volume"] > 0]
+
+        # data["RSI"] = ta.rsi(data["Close"], length=14)
+        data["VWAP"] = (
+            data["Volume"] * (data["High"] + data["Low"] + data["Close"]) / 3
+        ).cumsum() / data["Volume"].cumsum()
+
+        data["CUSTOM"] = [None] * len(data)
 
         if len(data) < 50:  # Need minimum data for analysis
             raise ValueError(f"Insufficient data: only {len(data)} rows")
