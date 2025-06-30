@@ -1,1 +1,1 @@
-from agent import Trader
+from .agent import Trader
