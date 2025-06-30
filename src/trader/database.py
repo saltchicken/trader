@@ -23,7 +23,7 @@ from datetime import date
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # Python 3.9+
 
-from log import logger
+from .log import logger
 
 Base = declarative_base()
 
@@ -64,7 +64,7 @@ KEY_MAPPING = {
     "dividendGrowthRate5Y": "dividend_growth_rate_5y",
     "payoutRatioTTM": "payout_ratio_ttm",
     "longTermDebt/equityQuarterly": "long_term_debt_equity_quarterly",
-    "currentRatioQuarterly": "current_ratio_quarterly"
+    "currentRatioQuarterly": "current_ratio_quarterly",
 }
 
 

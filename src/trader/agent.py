@@ -1,13 +1,13 @@
 from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
-from finance_client import FinanceClient
-from database import DatabaseClient, Company, MetricSnapshot
+from .finance_client import FinanceClient
+from .database import DatabaseClient, Company, MetricSnapshot
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from pprint import pprint
 
-from log import logger
+from .log import logger
 
 
 class Trader:
