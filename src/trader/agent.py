@@ -14,7 +14,8 @@ from .strategies import (
     VolumeReversalStrategy,
     SimpleVolumeStrategy,
 )
-import datetime
+
+from datetime import datetime, timedelta
 
 from pprint import pprint
 
@@ -98,22 +99,22 @@ class Trader:
         return query.all()
 
     def get_snapshots_from_past_day(self):
-        now_utc = datetime.now(tz=ZoneInfo("UTC"))
-        one_day_ago = now_utc - timedelta(days=1)
+        tz = ZoneInfo("America/Los_Angeles")
+        now_local = datetime.now(tz)
+        start_time_local = now_local - timedelta(days=1)
+
+        # Convert to UTC for comparison with UTC timestamps in DB
+        start_time_utc = start_time_local.astimezone(ZoneInfo("UTC"))
 
         snapshots = (
             self.db.session.query(MetricSnapshot)
-            .filter(MetricSnapshot.timestamp >= one_day_ago)
+            .filter(MetricSnapshot.timestamp >= start_time_utc)
             .order_by(MetricSnapshot.timestamp.desc())
             .all()
         )
 
-        logger.info(f"Found {len(snapshots)} snapshots from the past day.")
-
-        # Convert to DataFrame
-        df = pd.DataFrame([s.__dict__ for s in snapshots])
-        # df = df.drop(columns=["_sa_instance_state"])  # Drop SQLAlchemy internal column
-        return df
+        logger.info(f"Found {len(snapshots)} snapshots from past local day.")
+        return snapshots
 
     def score_snapshots(self):
         df = self.get_snapshots_from_past_day()
