@@ -4,6 +4,8 @@ from .agent import Trader
 import numpy as np
 import pandas as pd
 
+from pathlib import Path
+
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
 pd.set_option("display.width", None)
@@ -16,12 +18,11 @@ from zoneinfo import ZoneInfo
 
 from pprint import pprint
 
-main_dir = os.path.dirname(os.path.abspath(sys.modules["__main__"].__file__))
-style_path = os.path.join(main_dir, "dark.mplstyle")
+style_path = Path(__file__).parent / "config" / "dark.mplstyle"
 plt.style.use(style_path)
 
 
-if __name__ == "__main__":
+def main():
     trader = Trader()
     # trader.update_symbols()
     # #
@@ -72,3 +73,7 @@ if __name__ == "__main__":
     def basic_financials():
         financials = trader.client.client.company_basic_financials("PSNL", "all")
         pprint(financials)
+
+
+if __name__ == "__main__":
+    main()

@@ -5,10 +5,28 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "trader"
 version = "0.1.0"
-dependencies = []
+dependencies = [
+  "yfinance",
+  "finnhub-python",
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "ta",
+  "python-dotenv",
+  "sqlalchemy",
+  "lxml",
+  "loguru",
+  "alpaca-py",
+]
 
 [project.scripts]
 trader = "trader.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+trader = ["config/**"]
+
+[tool.setuptools]
+include-package-data = true
