@@ -27,8 +27,11 @@ def main():
     # trader.update_symbols()
     # #
     # trader.daily_update()
-    latest = trader.get_latest()
-    print(latest)
+    # latest = trader.get_snapshots_from_past_day()
+    # print(latest)
+
+    scores = trader.score_snapshots()
+    print(scores)
 
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
 
