@@ -171,6 +171,23 @@ class Trader:
         df = df.sort_values("rating", ascending=False)
         return df
 
+    def get_top_by_metric(self, metric_name, limit=5):
+        """Get top symbols by a specific metric score from latest snapshots"""
+        df = self.score_snapshots()
+
+        if df.empty:
+            logger.warning(f"No data to get top {metric_name}.")
+            return df
+
+        # Keep only the latest snapshot for each symbol
+        latest_snapshots = (
+            df.sort_values("timestamp").groupby("symbol").last().reset_index()
+        )
+
+        # Sort by the specified metric and get top results
+        top_results = latest_snapshots.nlargest(limit, metric_name)
+        return top_results
+
     def get_all_stock_data(self, symbols, days_back=730):
         """Download stock data for multiple symbols using a single Alpaca API call"""
         try:

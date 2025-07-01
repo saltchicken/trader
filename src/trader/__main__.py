@@ -37,15 +37,19 @@ def main():
     # latest = trader.get_snapshots_from_past_day()
     # print(latest)
 
-    scores = trader.score_snapshots()
-    composite_scores = trader.composite_score(scores)
-    # print(composite_scores)
-    top_scores = composite_scores.nlargest(5, "composite_score")
-    for idx, row in top_scores.iterrows():
-        print(f"{row['symbol']}: {row['composite_score']:.2f}")
+    # scores = trader.score_snapshots()
+    # composite_scores = trader.composite_score(scores)
+    # # print(composite_scores)
+    # top_scores = composite_scores.nlargest(5, "composite_score")
+    # for idx, row in top_scores.iterrows():
+    #     print(f"{row['symbol']}: {row['composite_score']:.2f}")
     # print(scores)
     #
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
+    top_revenue_growth = trader.get_top_by_metric("epsGrowth5Y", 5)
+    print("\nTop 5 by Revenue Growth:")
+    for idx, row in top_revenue_growth.iterrows():
+        print(f"{row['symbol']}: {row['epsGrowth5Y']:.2f}")
 
     # trader.db.print_table("companies")
     # trader.db.print_table("metric_snapshots")
