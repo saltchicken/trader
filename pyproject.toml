@@ -17,6 +17,7 @@ dependencies = [
   "lxml",
   "loguru",
   "alpaca-py",
+  "backtesting",
 ]
 
 [project.scripts]

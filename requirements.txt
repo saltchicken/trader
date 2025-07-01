@@ -9,3 +9,4 @@ sqlalchemy
 lxml
 loguru
 alpaca-py
+backtesting
