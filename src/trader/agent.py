@@ -99,22 +99,22 @@ class Trader:
         return query.all()
 
     def get_snapshots_from_past_day(self):
-        tz = ZoneInfo("America/Los_Angeles")
-        now_local = datetime.now(tz)
-        start_time_local = now_local - timedelta(days=1)
-
-        # Convert to UTC for comparison with UTC timestamps in DB
-        start_time_utc = start_time_local.astimezone(ZoneInfo("UTC"))
+        now_utc = datetime.now(tz=ZoneInfo("UTC"))
+        one_day_ago = now_utc - timedelta(days=2)
 
         snapshots = (
             self.db.session.query(MetricSnapshot)
-            .filter(MetricSnapshot.timestamp >= start_time_utc)
+            .filter(MetricSnapshot.timestamp >= one_day_ago)
             .order_by(MetricSnapshot.timestamp.desc())
             .all()
         )
 
-        logger.info(f"Found {len(snapshots)} snapshots from past local day.")
-        return snapshots
+        logger.info(f"Found {len(snapshots)} snapshots from the past day.")
+
+        # Convert to DataFrame
+        df = pd.DataFrame([s.__dict__ for s in snapshots])
+        # df = df.drop(columns=["_sa_instance_state"])  # Drop SQLAlchemy internal column
+        return df
 
     def score_snapshots(self):
         df = self.get_snapshots_from_past_day()
@@ -155,6 +155,20 @@ class Trader:
         df["score_revenue_growth"] = normalize_metric(df, "revenueGrowth5Y", True)
         df["score_pfcf"] = normalize_metric(df, "pfcfShareTTM", False)
 
+        return df
+
+    def composite_score(self, df):
+        df["composite_score"] = (
+            0.15 * df["score_pe"]
+            + 0.15 * df["score_eps_growth"]
+            + 0.15 * df["score_roe"]
+            + 0.1 * df["score_debt"]
+            + 0.15 * df["score_margin"]
+            + 0.15 * df["score_revenue_growth"]
+            + 0.15 * df["score_pfcf"]
+        )
+        df["rating"] = (df["composite_score"] * 100).round(1)
+        df = df.sort_values("rating", ascending=False)
         return df
 
     def get_all_stock_data(self, symbols, days_back=730):

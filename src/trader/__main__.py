@@ -34,10 +34,15 @@ def main():
     # trader.update_symbols()
     # #
     # trader.daily_update()
-    latest = trader.get_snapshots_from_past_day()
-    print(latest)
+    # latest = trader.get_snapshots_from_past_day()
+    # print(latest)
 
-    # scores = trader.score_snapshots()
+    scores = trader.score_snapshots()
+    composite_scores = trader.composite_score(scores)
+    # print(composite_scores)
+    top_scores = composite_scores.nlargest(5, "composite_score")
+    for idx, row in top_scores.iterrows():
+        print(f"{row['symbol']}: {row['composite_score']:.2f}")
     # print(scores)
     #
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
