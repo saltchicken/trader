@@ -32,6 +32,7 @@ plt.style.use(style_path)
 def main():
     trader = Trader()
     # trader.update_symbols()
+    trader.db.migrate("stock_data.db")
     # #
     # trader.daily_update()
     # latest = trader.get_snapshots_from_past_day()
@@ -46,15 +47,15 @@ def main():
     # print(scores)
     #
     # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
-    top_revenue_growth = trader.get_top_by_metric("epsGrowth5Y", 5)
-    print("\nTop 5 by Revenue Growth:")
-    for idx, row in top_revenue_growth.iterrows():
-        print(f"{row['symbol']}: {row['epsGrowth5Y']:.2f}")
+    # top_revenue_growth = trader.get_top_by_metric("epsGrowth5Y", 5)
+    # print("\nTop 5 by Revenue Growth:")
+    # for idx, row in top_revenue_growth.iterrows():
+    #     print(f"{row['symbol']}: {row['epsGrowth5Y']:.2f}")
 
     # trader.db.print_table("companies")
     # trader.db.print_table("metric_snapshots")
     # trader.db.print_table("current_metrics")
-    company = trader.db.session.query(Company).filter_by(symbol="AAPL").first()
+    # company = trader.db.session.query(Company).filter_by(symbol="AAPL").first()
 
     # if company:
     #     snapshots = company.snapshots

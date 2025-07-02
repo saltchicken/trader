@@ -23,7 +23,18 @@ from datetime import date
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # Python 3.9+
 
+from dotenv import load_dotenv
+import os
+
+
 from .log import logger
+
+load_dotenv()
+pg_user = os.getenv("PG_USER")
+pg_pass = os.getenv("PG_PASS")
+pg_host = os.getenv("PG_HOST", "localhost")
+pg_port = os.getenv("PG_PORT", "5432")
+pg_db = os.getenv("PG_DB")
 
 Base = declarative_base()
 
@@ -133,7 +144,10 @@ class CurrentMetrics(Base):
 
 class DatabaseClient:
     def __init__(self, filename):
-        self.engine = create_engine(f"sqlite:///{filename}.db")
+        # self.engine = create_engine(f"sqlite:///{filename}.db")
+        self.engine = create_engine(
+            f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+        )
         Base.metadata.create_all(self.engine)
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
@@ -142,6 +156,28 @@ class DatabaseClient:
     #     self.session.execute(
     #         text(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_type}")
     #     )
+    #
+    def migrate(self, filename):
+        self.child_engine = create_engine(f"sqlite:///{filename}")
+        Base.metadata.create_all(self.child_engine)
+        Session = sessionmaker(bind=self.child_engine)
+        self.child_session = Session()
+
+        # Migrate Companies
+        for company in self.child_session.query(Company).all():
+            self.session.merge(company)
+
+        # Migrate MetricSnapshots
+        for snapshot in self.child_session.query(MetricSnapshot).all():
+            self.session.merge(snapshot)
+
+        # Migrate CurrentMetrics
+        for cm in self.child_session.query(CurrentMetrics).all():
+            self.session.merge(cm)
+
+        self.session.commit()
+        print("Migration completed!")
+
     def was_updated_in_nightly_window(self, symbol):
         now = datetime.now(ZoneInfo("America/Los_Angeles"))
 
