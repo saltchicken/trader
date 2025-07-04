@@ -13,3 +13,4 @@ edgartools
 backtesting
 git+https://github.com/Arelle/Arelle.git
 sec_edgar_downloader
+psycopg2-binary
