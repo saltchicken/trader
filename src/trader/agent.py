@@ -72,6 +72,40 @@ class Trader:
             return True
         return False
 
+    def filter_stocks(self, stock_list):
+        print(stock_list)
+        # Set your investment criteria here
+        return [
+            s for s in stock_list
+            if s["pe"] and s["pe"] < 40
+            and s["roe"] and s["roe"] > 0.15
+            and s["debt_to_equity"] is not None and s["debt_to_equity"] < 1.0
+            and s["revenue_growth"] and s["revenue_growth"] > 0.05
+        ]
+
+    def get_top(self):
+        companies = self.db.get_all_symbols()
+        metrics = []
+        for symbol in companies:
+            print(symbol)
+            data = self.client.get_metrics(symbol)["metric"]
+            stats = {
+                "symbol": symbol,
+                "pe": data.get("peTTM"),
+                "roe": data.get("roeTTM"),
+                "debt_to_equity": data.get("longTermDebt/equityAnnual"),
+                "eps": data.get("epsTTM"),
+                "revenue_growth": data.get("revenueGrowth5Y")
+            }
+            metrics.append(stats)
+
+        stocks = self.filter_stocks(metrics)
+        print(stocks)
+
+
+
+
+
     def get_latest(self, limit=10):
         subquery = (
             self.db.session.query(

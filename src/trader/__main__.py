@@ -31,8 +31,9 @@ plt.style.use(style_path)
 
 def main():
     trader = Trader()
+    trader.get_top()
     # trader.update_symbols()
-    trader.db.migrate("stock_data.db")
+    # trader.db.migrate("stock_data.db")
     # #
     # trader.daily_update()
     # latest = trader.get_snapshots_from_past_day()
