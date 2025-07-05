@@ -77,13 +77,30 @@ class Trader:
         return False
 
     def get_filtered_metrics(self):
-        """Get metrics where all key financial values are not NULL"""
-        query = text("SELECT * FROM metric_snapshots WHERE pe_ttm IS NOT NULL AND roe_ttm IS NOT NULL AND long_term_debt_equity_quarterly IS NOT NULL AND eps_ttm IS NOT NULL AND revenue_growth_5y IS NOT NULL ORDER BY symbol ASC")
+        """Get metrics where all key financial values are not NULL and return as DataFrame"""
+        from sqlalchemy import text
+        
+        query = text("""
+        SELECT * FROM metric_snapshots 
+        WHERE pe_ttm IS NOT NULL AND 
+        roe_ttm IS NOT NULL AND
+        long_term_debt_equity_quarterly IS NOT NULL AND
+        eps_ttm IS NOT NULL AND
+        revenue_growth_5y IS NOT NULL
+        ORDER BY symbol ASC
+        """)
         
         result = self.db.session.execute(query)
         rows = result.fetchall()
-        logger.info(f"Found {len(rows)} metrics with no NULL values in key fields")
-        return rows
+        
+        # Convert rows to dictionaries using _mapping attribute
+        data = [dict(row._mapping) for row in rows]
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        logger.info(f"Found {len(df)} metrics with no NULL values in key fields")
+        return df
 
     def filter_stocks(self, stock_list):
         # Set your investment criteria here
@@ -98,24 +115,21 @@ class Trader:
         return df
 
     def get_top(self):
+        """Get filtered metrics and convert to DataFrame efficiently"""
+        # Get filtered metrics from database
         companies = self.get_filtered_metrics()
-        # print(companies)
-        metrics = []
-        for company in companies:
-            print(company.symbol)
-            stats = {
-                "symbol": company.symbol,
-                "pe": company.pe_ttm,
-                "roe": company.roe_ttm,
-                "debt_to_equity": company.long_term_debt_equity_quarterly,
-                "eps": company.eps_ttm,
-                "revenue_growth": company.revenue_growth_5y
-            }
-            metrics.append(stats)
-
-        df = self.filter_stocks(metrics)
-        return df
+        # logger.info(f"Processing {len(companies)} companies that match filter criteria")
         
+        # Apply filtering criteria directly to the DataFrame
+        filtered_df = companies[
+            (companies['pe_ttm'] > 0) & (companies['pe_ttm'] < 40) &
+            (companies['roe_ttm'] > 0.15) &
+            (companies['long_term_debt_equity_quarterly'] < 1.0) &
+            (companies['revenue_growth_5y'] > 0.05)
+        ]
+        
+        logger.info(f"Found {len(filtered_df)} companies matching all criteria")
+        return filtered_df
 
 
 

@@ -13,9 +13,9 @@ from .strategies import (
 
 from pathlib import Path
 
-pd.set_option("display.max_columns", None)
+# pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
-pd.set_option("display.width", None)
+# pd.set_option("display.width", None)
 import matplotlib.pyplot as plt
 import ta
 import os
@@ -33,8 +33,8 @@ def main():
     trader = Trader()
     df = trader.get_top()
     print(df.columns)
-    top_revenue_growth = df.sort_values("revenue_growth", ascending=False).head(20)
-    print(top_revenue_growth)
+    top_revenue_growth = df.sort_values("roe_ttm", ascending=False).head(20)
+    print(top_revenue_growth[["symbol", "roe_ttm"]])
     # trader.update_symbols()
     # trader.db.migrate("stock_data.db")
     # #
