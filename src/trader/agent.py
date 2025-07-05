@@ -18,8 +18,6 @@ from .strategies import (
 
 from datetime import datetime, timedelta
 
-from pprint import pprint
-
 from dotenv import load_dotenv
 from .log import logger
 import os
@@ -79,7 +77,7 @@ class Trader:
     def get_filtered_metrics(self):
         """Get metrics where all key financial values are not NULL and return as DataFrame"""
         from sqlalchemy import text
-        
+
         query = text("""
         SELECT * FROM metric_snapshots 
         WHERE pe_ttm IS NOT NULL AND 
@@ -89,27 +87,32 @@ class Trader:
         revenue_growth_5y IS NOT NULL
         ORDER BY symbol ASC
         """)
-        
+
         result = self.db.session.execute(query)
         rows = result.fetchall()
-        
+
         # Convert rows to dictionaries using _mapping attribute
         data = [dict(row._mapping) for row in rows]
-        
+
         # Create DataFrame
         df = pd.DataFrame(data)
-        
+
         logger.info(f"Found {len(df)} metrics with no NULL values in key fields")
         return df
 
     def filter_stocks(self, stock_list):
         # Set your investment criteria here
         filtered_stocks = [
-            s for s in stock_list
-            if s["pe"] and s["pe"] < 40
-            and s["roe"] and s["roe"] > 0.15
-            and s["debt_to_equity"] is not None and s["debt_to_equity"] < 1.0
-            and s["revenue_growth"] and s["revenue_growth"] > 0.05
+            s
+            for s in stock_list
+            if s["pe"]
+            and s["pe"] < 40
+            and s["roe"]
+            and s["roe"] > 0.15
+            and s["debt_to_equity"] is not None
+            and s["debt_to_equity"] < 1.0
+            and s["revenue_growth"]
+            and s["revenue_growth"] > 0.05
         ]
         df = pd.DataFrame(filtered_stocks)
         return df
@@ -119,21 +122,18 @@ class Trader:
         # Get filtered metrics from database
         companies = self.get_filtered_metrics()
         # logger.info(f"Processing {len(companies)} companies that match filter criteria")
-        
+
         # Apply filtering criteria directly to the DataFrame
         filtered_df = companies[
-            (companies['pe_ttm'] > 0) & (companies['pe_ttm'] < 40) &
-            (companies['roe_ttm'] > 0.15) &
-            (companies['long_term_debt_equity_quarterly'] < 1.0) &
-            (companies['revenue_growth_5y'] > 0.05)
+            (companies["pe_ttm"] > 0)
+            & (companies["pe_ttm"] < 40)
+            & (companies["roe_ttm"] > 0.15)
+            & (companies["long_term_debt_equity_quarterly"] < 1.0)
+            & (companies["revenue_growth_5y"] > 0.05)
         ]
-        
+
         logger.info(f"Found {len(filtered_df)} companies matching all criteria")
         return filtered_df
-
-
-
-
 
     def get_latest(self, limit=10):
         subquery = (
