@@ -64,7 +64,10 @@ class Trader:
                 continue
 
             metrics = self.client.get_metrics(symbol)
-            self.db.daily_update(symbol, metrics["metric"])
+            if metrics:
+                self.db.daily_update(symbol, metrics["metric"])
+            else:
+                logger.error("There was an error. Skipping")
 
     def is_within_allowed_update_window(self):
         now = datetime.now(ZoneInfo("America/Los_Angeles"))

@@ -69,7 +69,11 @@ class FinanceClient:
 
     @RateLimiter(1, 1.25)
     def get_metrics(self, symbol):
-        return self.client.company_basic_financials(symbol=symbol, metric="all")
+        try:
+            metrics = self.client.company_basic_financials(symbol=symbol, metric="all")
+            return metrics
+        except Exception as e:
+            return False
 
     def print_metrics(self, symbol):
         print(json.dumps(self.get_metrics(symbol), indent=4))
