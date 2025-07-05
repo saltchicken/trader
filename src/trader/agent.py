@@ -33,6 +33,98 @@ class Trader:
         logger.info(f"Found {len(filtered_df)} companies matching all criteria")
         return filtered_df
 
+    def backtest(self, symbols, strategy):
+        print(f"\n🔄 Fetching data for all symbols...")
+        stock_data_cache = self.db.client.get_all_stock_data(symbols)
+
+        if stock_data_cache is None:
+            print("❌ Failed to fetch stock data. Exiting.")
+            return
+
+        # Count successful downloads
+        successful_symbols = [s for s in symbols if stock_data_cache.get(s) is not None]
+        print(
+            f"✅ Successfully loaded data for {len(successful_symbols)} out of {len(symbols)} symbols"
+        )
+
+        for symbol in symbols:
+            data = stock_data_cache.get(symbol)
+            if data is None:
+                print(f"\n⏭️ Skipping {symbol} - no data available")
+                continue
+
+            print(f"\n🎯 ANALYZING {symbol}")
+            print("-" * 40)
+
+            print(f"\n{'=' * 60}")
+            print(f"🔍 Running {strategy.__name__} for {symbol}")
+            print(f"{'=' * 60}")
+            result = self.run_backtest(symbol, strategy, data)
+            print(f"\n📈 Backtest Results for {symbol}:")
+            print(f"   Total Return:     {result['Return [%]']:.2f}%")
+            print(f"   Buy & Hold:       {result['Buy & Hold Return [%]']:.2f}%")
+            print(f"   Sharpe Ratio:     {result['Sharpe Ratio']:.2f}")
+            print(f"   Max Drawdown:     {result['Max. Drawdown [%]']:.2f}%")
+            print(f"   Number of Trades: {result['# Trades']}")
+
+            if result["# Trades"] > 0:
+                print(f"   Win Rate:         {result['Win Rate [%]']:.1f}%")
+                print(f"   Avg Trade:        {result['Avg. Trade [%]']:.2f}%")
+
+    def backtest_optimize(self, symbols, strategy):
+        # Only run optimization if we have AAPL data
+        stock_data_cache = self.db.client.get_all_stock_data(symbols)
+        for symbol in symbols:
+            data = stock_data_cache.get(symbol)
+            if data is not None:
+                try:
+                    opt_result = self.run_backtest(
+                        symbol,
+                        strategy,
+                        data,
+                        volume_threshold=[1.5, 1.6, 1.4, 2.0, 2.5, 3.0],
+                        volume_period=[14, 15, 16, 17, 18, 19, 20, 25],
+                        hold_days=[3, 5, 7, 10],
+                    )
+
+                    if opt_result is not None:
+                        print(f"\n🎯 Optimized Parameters for {symbol}:")
+                        strategy_instance = opt_result._strategy
+                        print(
+                            f"   Volume Threshold: {strategy_instance.volume_threshold}"
+                        )
+                        print(f"   Volume Period:    {strategy_instance.volume_period}")
+                        print(f"   Hold Days:        {strategy_instance.hold_days}")
+                        print(f"   Optimized Return: {opt_result['Return [%]']:.2f}%")
+
+                except Exception as e:
+                    print(f"❌ Optimization failed: {e}")
+            else:
+                print(f"⏭️ Skipping optimization - {symbol} data not available")
+
+            print(f"\n✅ Analysis complete!")
+
+    def run_backtest(self, symbol, strategy, data, **kwargs):
+        """Run backtest for a given symbol and strategy"""
+
+        try:
+            bt = Backtest(data, strategy, cash=100000, commission=0.002)
+
+            # Run backtest
+            if not kwargs:
+                print("📊 Running backtest...")
+                result = bt.run()
+            else:
+                print("🔧 Optimizing parameters...")
+                result = bt.optimize(**kwargs, maximize="Sharpe Ratio", max_tries=20)
+
+            return result
+
+        except Exception as e:
+            print(f"❌ Error running backtest for {symbol}: {e}")
+            print(f"   Error type: {type(e).__name__}")
+            return None
+
     # def score_snapshots(self):
     #     df = self.get_snapshots_from_past_day()
     #
@@ -104,51 +196,3 @@ class Trader:
     #     # Sort by the specified metric and get top results
     #     top_results = latest_snapshots.nlargest(limit, metric_name)
     #     return top_results
-
-    def run_backtest(self, symbol, strategy_class, stock_data_cache=None, **kwargs):
-        """Run backtest for a given symbol and strategy"""
-        print(f"\n{'=' * 60}")
-        print(f"🔍 Running {strategy_class.__name__} for {symbol}")
-        print(f"{'=' * 60}")
-
-        # Get data from cache
-        if stock_data_cache is None:
-            print(f"❌ No cached data available for {symbol}")
-            data = None
-        else:
-            data = stock_data_cache.get(symbol)
-
-        if data is None:
-            print(f"❌ Skipping {symbol} due to data issues")
-            return None
-
-        try:
-            # Run backtest
-            bt = Backtest(data, strategy_class, cash=100000, commission=0.002)
-
-            # Run backtest
-            if not kwargs:
-                print("📊 Running backtest...")
-                result = bt.run()
-            else:
-                print("🔧 Optimizing parameters...")
-                result = bt.optimize(**kwargs, maximize="Sharpe Ratio", max_tries=20)
-
-            # Display results
-            print(f"\n📈 Backtest Results for {symbol}:")
-            print(f"   Total Return:     {result['Return [%]']:.2f}%")
-            print(f"   Buy & Hold:       {result['Buy & Hold Return [%]']:.2f}%")
-            print(f"   Sharpe Ratio:     {result['Sharpe Ratio']:.2f}")
-            print(f"   Max Drawdown:     {result['Max. Drawdown [%]']:.2f}%")
-            print(f"   Number of Trades: {result['# Trades']}")
-
-            if result["# Trades"] > 0:
-                print(f"   Win Rate:         {result['Win Rate [%]']:.1f}%")
-                print(f"   Avg Trade:        {result['Avg. Trade [%]']:.2f}%")
-
-            return result
-
-        except Exception as e:
-            print(f"❌ Error running backtest for {symbol}: {e}")
-            print(f"   Error type: {type(e).__name__}")
-            return None
