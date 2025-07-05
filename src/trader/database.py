@@ -191,7 +191,7 @@ class DatabaseClient:
             is not None
         )
 
-    def update_symbols(self, companies):
+    def update_symbols(self):
         companies = self.client.get_all_stocks()
         new_companies = []
 
