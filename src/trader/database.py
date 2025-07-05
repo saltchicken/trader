@@ -224,10 +224,11 @@ class DatabaseClient:
             return True
         return False
 
-    def daily_update(self):
-        if not self.is_within_allowed_update_window():
-            logger.error("Not within allowed update window. Skipping.")
-            return
+    def daily_update(self, ignore_window=False):
+        if not ignore_window:
+            if not self.is_within_allowed_update_window():
+                logger.error("Not within allowed update window. Skipping.")
+                return
 
         for symbol in self.get_all_symbols():
             logger.debug(symbol)
