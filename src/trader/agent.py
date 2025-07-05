@@ -11,6 +11,69 @@ class Trader:
         self.db = DatabaseClient("stock_data")
         self.alpaca = AlpacaClient()
 
+    def get_crosses(self, symbols):
+        data = self.alpaca.get_all_stock_data(symbols, days_back=730)
+        results = {}
+        for symbol in symbols:
+            df = data[symbol]
+            df["ema_12"] = df["Close"].ewm(span=12, adjust=False).mean()
+            df["ema_26"] = df["Close"].ewm(span=26, adjust=False).mean()
+            df["macd"] = df["ema_12"] - df["ema_26"]
+            df["signal"] = df["macd"].ewm(span=9, adjust=False).mean()
+
+            # Moving Averages
+            df["sma_50"] = df["Close"].rolling(window=50).mean()
+            df["sma_200"] = df["Close"].rolling(window=200).mean()
+
+            today = df.iloc[-1]
+            yesterday = df.iloc[-2]
+
+            # Check for MACD cross today
+            bullish_macd_today = (yesterday["macd"] < yesterday["signal"]) and (
+                today["macd"] > today["signal"]
+            )
+            bearish_macd_today = (yesterday["macd"] > yesterday["signal"]) and (
+                today["macd"] < today["signal"]
+            )
+
+            # Check for Golden/Death cross today
+            golden_cross_today = (yesterday["sma_50"] < yesterday["sma_200"]) and (
+                today["sma_50"] > today["sma_200"]
+            )
+            death_cross_today = (yesterday["sma_50"] > yesterday["sma_200"]) and (
+                today["sma_50"] < today["sma_200"]
+            )
+
+            result = {
+                "bullish_macd": bullish_macd_today,
+                "bearish_macd": bearish_macd_today,
+                "golden_cross": golden_cross_today,
+                "death_cross": death_cross_today,
+            }
+            results[symbol] = result
+        return results
+
+    def interpret_crosses(self, crosses):
+        for cross, value in crosses.items():
+            if cross == "bullish_macd" and value:
+                return "buy"
+            elif cross == "bearish_macd" and value:
+                return "sell"
+            elif cross == "golden_cross" and value:
+                return "buy"
+            elif cross == "death_cross" and value:
+                return "sell"
+            else:
+                return "hold"
+
+    def get_snapshots_from_past_day(self):
+        return self.db.run_query(
+            """
+            SELECT * FROM metric_snapshots 
+            WHERE timestamp >= NOW() - INTERVAL '1 day'
+            """
+        )
+
     def get_top(self):
         companies = self.db.run_query("""
         SELECT * FROM metric_snapshots 
@@ -21,18 +84,43 @@ class Trader:
         revenue_growth_5y IS NOT NULL
         ORDER BY symbol ASC
         """)
-        # logger.info(f"Processing {len(companies)} companies that match filter criteria")
 
-        # Apply filtering criteria directly to the DataFrame
-        filtered_df = companies[
-            (companies["pe_ttm"] > 0)
-            & (companies["pe_ttm"] < 40)
-            & (companies["roe_ttm"] > 0.15)
-            & (companies["long_term_debt_equity_quarterly"] < 1.0)
-            & (companies["revenue_growth_5y"] > 0.05)
+        # Create ranking for each metric (lower rank is better)
+        companies["pe_rank"] = companies["pe_ttm"].rank(
+            method="min", ascending=True
+        )  # Lower PE is better
+        companies["roe_rank"] = companies["roe_ttm"].rank(
+            method="min", ascending=False
+        )  # Higher ROE is better
+        companies["debt_rank"] = companies["long_term_debt_equity_quarterly"].rank(
+            method="min", ascending=True
+        )  # Lower debt is better
+        companies["growth_rank"] = companies["revenue_growth_5y"].rank(
+            method="min", ascending=False
+        )  # Higher growth is better
+
+        # Calculate composite score (lower is better)
+        companies["composite_score"] = (
+            companies["pe_rank"] * 0.25
+            + companies["roe_rank"] * 0.25
+            + companies["debt_rank"] * 0.25
+            + companies["growth_rank"] * 0.25
+        )
+
+        # Sort by composite score (ascending = better rank)
+        sorted_companies = companies.sort_values("composite_score")
+
+        logger.info(f"Ranked {len(sorted_companies)} companies by composite score")
+        return sorted_companies
+
+    def filter_bad_investments(self, df):
+        filtered_df = df[
+            (df["pe_ttm"] > 0)
+            & (df["pe_ttm"] < 40)
+            & (df["roe_ttm"] > 0.15)
+            & (df["long_term_debt_equity_quarterly"] < 1.0)
+            & (df["revenue_growth_5y"] > 0.05)
         ]
-
-        logger.info(f"Found {len(filtered_df)} companies matching all criteria")
         return filtered_df
 
     def backtest(self, symbols, strategy):
