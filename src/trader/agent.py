@@ -1,5 +1,6 @@
 from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
+from sqlalchemy import text
 from .finance_client import FinanceClient
 from .database import DatabaseClient, Company, MetricSnapshot
 from datetime import datetime, timedelta
@@ -75,35 +76,46 @@ class Trader:
             return True
         return False
 
+    def get_filtered_metrics(self):
+        """Get metrics where all key financial values are not NULL"""
+        query = text("SELECT * FROM metric_snapshots WHERE pe_ttm IS NOT NULL AND roe_ttm IS NOT NULL AND long_term_debt_equity_quarterly IS NOT NULL AND eps_ttm IS NOT NULL AND revenue_growth_5y IS NOT NULL ORDER BY symbol ASC")
+        
+        result = self.db.session.execute(query)
+        rows = result.fetchall()
+        logger.info(f"Found {len(rows)} metrics with no NULL values in key fields")
+        return rows
+
     def filter_stocks(self, stock_list):
-        print(stock_list)
         # Set your investment criteria here
-        return [
+        filtered_stocks = [
             s for s in stock_list
             if s["pe"] and s["pe"] < 40
             and s["roe"] and s["roe"] > 0.15
             and s["debt_to_equity"] is not None and s["debt_to_equity"] < 1.0
             and s["revenue_growth"] and s["revenue_growth"] > 0.05
         ]
+        df = pd.DataFrame(filtered_stocks)
+        return df
 
     def get_top(self):
-        companies = self.db.get_all_symbols()
+        companies = self.get_filtered_metrics()
+        # print(companies)
         metrics = []
-        for symbol in companies:
-            print(symbol)
-            data = self.client.get_metrics(symbol)["metric"]
+        for company in companies:
+            print(company.symbol)
             stats = {
-                "symbol": symbol,
-                "pe": data.get("peTTM"),
-                "roe": data.get("roeTTM"),
-                "debt_to_equity": data.get("longTermDebt/equityAnnual"),
-                "eps": data.get("epsTTM"),
-                "revenue_growth": data.get("revenueGrowth5Y")
+                "symbol": company.symbol,
+                "pe": company.pe_ttm,
+                "roe": company.roe_ttm,
+                "debt_to_equity": company.long_term_debt_equity_quarterly,
+                "eps": company.eps_ttm,
+                "revenue_growth": company.revenue_growth_5y
             }
             metrics.append(stats)
 
-        stocks = self.filter_stocks(metrics)
-        print(stocks)
+        df = self.filter_stocks(metrics)
+        return df
+        
 
 
 

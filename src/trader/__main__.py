@@ -31,7 +31,10 @@ plt.style.use(style_path)
 
 def main():
     trader = Trader()
-    trader.get_top()
+    df = trader.get_top()
+    print(df.columns)
+    top_revenue_growth = df.sort_values("revenue_growth", ascending=False).head(20)
+    print(top_revenue_growth)
     # trader.update_symbols()
     # trader.db.migrate("stock_data.db")
     # #
