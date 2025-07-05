@@ -4,7 +4,7 @@ import time
 import threading
 from dotenv import load_dotenv
 import os
-from datetime import datetime
+import datetime
 
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
