@@ -26,7 +26,7 @@ import os
 
 
 from .log import logger
-from .finance_client import FinanceClient
+from .external_api import FinnHubClient
 
 pd.set_option("display.float_format", "{:.2f}".format)
 
@@ -145,7 +145,7 @@ class CurrentMetrics(Base):
 
 class DatabaseClient:
     def __init__(self, filename):
-        self.client = FinanceClient()
+        self.client = FinnHubClient()
         self.engine = create_engine(
             f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
         )

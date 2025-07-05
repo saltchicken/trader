@@ -1,4 +1,5 @@
 from .database import DatabaseClient
+from .external_api import AlpacaClient
 
 from backtesting import Backtest
 
@@ -8,6 +9,7 @@ from .log import logger
 class Trader:
     def __init__(self):
         self.db = DatabaseClient("stock_data")
+        self.alpaca = AlpacaClient()
 
     def get_top(self):
         companies = self.db.run_query("""
@@ -35,7 +37,7 @@ class Trader:
 
     def backtest(self, symbols, strategy):
         print(f"\n🔄 Fetching data for all symbols...")
-        stock_data_cache = self.db.client.get_all_stock_data(symbols)
+        stock_data_cache = self.alpaca.get_all_stock_data(symbols)
 
         if stock_data_cache is None:
             print("❌ Failed to fetch stock data. Exiting.")
@@ -73,7 +75,7 @@ class Trader:
 
     def backtest_optimize(self, symbols, strategy):
         # Only run optimization if we have AAPL data
-        stock_data_cache = self.db.client.get_all_stock_data(symbols)
+        stock_data_cache = self.alpaca.get_all_stock_data(symbols)
         for symbol in symbols:
             data = stock_data_cache.get(symbol)
             if data is not None:

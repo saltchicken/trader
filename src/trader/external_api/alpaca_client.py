@@ -1,86 +1,22 @@
-import finnhub
-import pandas as pd
-import time
-import threading
-from dotenv import load_dotenv
-import os
-import datetime
-
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.common.exceptions import APIError
+from dotenv import load_dotenv
+import pandas as pd
+import os
+import datetime
 
-# Load environment variables
 load_dotenv()
-API_KEY = os.getenv("FINNHUB_API_KEY")
-if not API_KEY:
-    raise ValueError("Missing FINNHUB_API_KEY in .env")
+API_KEY = os.getenv("APCA_API_KEY_ID")
+SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
+if not API_KEY or not SECRET_KEY:
+    raise ValueError("Missing APCA_API_KEY_ID and APCA_API_SECRET_KEY in .env")
 
 
-class RateLimiter:
-    def __init__(self, max_calls, period):
-        self.max_calls = max_calls
-        self.period = period
-        self.calls = []
-        self.lock = threading.Lock()
-
-    def __call__(self, func):
-        def wrapped(*args, **kwargs):
-            with self.lock:
-                now = time.time()
-                self.calls = [t for t in self.calls if now - t < self.period]
-                if len(self.calls) >= self.max_calls:
-                    sleep_time = self.period - (now - self.calls[0])
-                    print(f"Rate limit reached. Sleeping for {sleep_time:.2f} seconds.")
-                    time.sleep(sleep_time)
-                self.calls.append(time.time())
-            return func(*args, **kwargs)
-
-        return wrapped
-
-
-class FinanceClient:
-    def __init__(self, api_key=API_KEY, max_calls_per_minute=60):
-        self.client = finnhub.Client(api_key=api_key)
-        self.rate_limit = RateLimiter(max_calls_per_minute, 60)
-
-    @property
-    def limit(self):
-        return self.rate_limit
-
-    @RateLimiter(1, 1.25)
-    def get_profile(self, symbol):
-        return self.client.company_profile2(symbol=symbol)
-
-    @RateLimiter(1, 1.25)
-    def get_financials(self, symbol):
-        return self.client.financials_reported(symbol=symbol)
-
-    @RateLimiter(1, 1.25)
-    def get_metrics(self, symbol):
-        try:
-            metrics = self.client.company_basic_financials(symbol=symbol, metric="all")
-            return metrics
-        except Exception:
-            return False
-
-    @RateLimiter(1, 1.25)
-    def get_filings(self, symbol, _from, to):
-        return self.client.filings(symbol=symbol, _from=_from, to=to)
-
-    def get_all_stocks(self):
-        symbols = self.client.stock_symbols("US")
-        df = pd.DataFrame(symbols)
-        valid_mics = ["XNYS", "XNAS"]  # NYSE and NASDAQ
-
-        df_filtered = df[(df["type"] == "Common Stock") & (df["mic"].isin(valid_mics))]
-        # df_filtered = df_filtered[~df_filtered["symbol"].str.contains(r"\.")]
-
-        # print(f"Filtered count: {len(df_filtered)}")
-        return df_filtered[["symbol", "description"]].to_dict(orient="records")
-        # return df_filtered["symbol"].tolist()
-        #
+class AlpacaClient:
+    def __init__(self):
+        self.client = StockHistoricalDataClient(api_key=API_KEY, secret_key=SECRET_KEY)
 
     def get_all_stock_data(self, symbols, days_back=730):
         """Download stock data for multiple symbols using a single Alpaca API call"""
@@ -90,10 +26,6 @@ class FinanceClient:
             )
 
             # Initialize the client
-            client = StockHistoricalDataClient(
-                api_key=os.getenv("APCA_API_KEY_ID"),
-                secret_key=os.getenv("APCA_API_SECRET_KEY"),
-            )
 
             # Calculate start and end dates
             end_date = datetime.datetime.now()
@@ -108,7 +40,7 @@ class FinanceClient:
             )
 
             # Get the data for all symbols
-            bars = client.get_stock_bars(request_params)
+            bars = self.client.get_stock_bars(request_params)
 
             if not bars.data:
                 raise ValueError("No data found for any symbols")
@@ -176,10 +108,3 @@ class FinanceClient:
         except Exception as e:
             print(f"❌ Error downloading data: {e}")
             return None
-
-
-# === Example Usage ===
-if __name__ == "__main__":
-    fh = FinanceClient()
-    data = fh.get_quote_history("AAPL")
-    print(data)
