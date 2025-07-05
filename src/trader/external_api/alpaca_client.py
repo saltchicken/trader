@@ -2,6 +2,25 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.common.exceptions import APIError
+from alpaca.trading.client import TradingClient
+
+from alpaca.data.requests import (
+    StockQuotesRequest,
+)
+from alpaca.trading.requests import (
+    GetOrdersRequest,
+    LimitOrderRequest,
+    MarketOrderRequest,
+    StopLossRequest,
+    TakeProfitRequest,
+    TrailingStopOrderRequest,
+)
+from alpaca.trading.enums import (
+    OrderClass,
+    OrderSide,
+    QueryOrderStatus,
+    TimeInForce,
+)
 from dotenv import load_dotenv
 import pandas as pd
 import os
@@ -15,8 +34,113 @@ if not API_KEY or not SECRET_KEY:
 
 
 class AlpacaClient:
-    def __init__(self):
-        self.client = StockHistoricalDataClient(api_key=API_KEY, secret_key=SECRET_KEY)
+    def __init__(self, paper=True):
+        self.historical_client = StockHistoricalDataClient(
+            api_key=API_KEY, secret_key=SECRET_KEY
+        )
+        self.trading_client = TradingClient(API_KEY, SECRET_KEY, paper=paper)
+        self.acct = self.trading_client.get_account()
+        self.acct_config = self.trading_client.get_account_configurations()
+        # self.assets = self.trading_client.get_all_assets(
+        #     GetAssetsRequest(status=AssetStatus.ACTIVE)
+        # )
+        self.orders = self.trading_client.get_orders(
+            GetOrdersRequest(status=QueryOrderStatus.OPEN)
+        )
+        self.positions = self.trading_client.get_all_positions()
+
+    def order_buy_market_bracket(self, symbol, notional, limit_price, stop_price):
+        print(f"Buying ${notional} of shares of {symbol} at a limit of ${limit_price}")
+        req = MarketOrderRequest(
+            symbol=symbol,
+            notional=notional,
+            side=OrderSide.BUY,
+            time_in_force=TimeInForce.DAY,
+            Class=OrderClass.BRACKET,
+            take_profit=TakeProfitRequest(limit_price=limit_price),
+            stop_loss=StopLossRequest(stop_price=stop_price),
+        )
+
+        res = self.trading_client.submit_order(req)
+        return res
+
+    # NOTE: Not working. Shows up as a Market Order
+    # def order_buy_limit_bracket(
+    #     self, symbol, notional, buy_limit_price, profit_limit_price, stop_price
+    # ):
+    #     current_price = self.get_stock_current_price(symbol)[symbol].ask_price
+    #     qty = int(notional // current_price)
+    #     if qty < 1:
+    #         print(f"❌ Not enough money to buy {qty} shares of {symbol}")
+    #         return False
+    #     print(f"Buying {qty} shares of {symbol} at a limit of ${buy_limit_price}")
+    #     req = MarketOrderRequest(
+    #         symbol=symbol,
+    #         qty=qty,
+    #         side=OrderSide.BUY,
+    #         type=OrderType.LIMIT,
+    #         time_in_force=TimeInForce.GTC,
+    #         Class=OrderClass.BRACKET,
+    #         take_profit=TakeProfitRequest(limit_price=profit_limit_price),
+    #         stop_loss=StopLossRequest(stop_price=stop_price),
+    #     )
+    #
+    #     res = self.trading_client.submit_order(req)
+    #     return res
+
+    def order_buy_limit_stop_loss(self, symbol, notional, limit_price, stop_price):
+        current_price = self.get_stock_current_price(symbol)[symbol].ask_price
+        qty = int(notional // current_price)
+        if qty < 1:
+            print(f"❌ Not enough money to buy {qty} shares of {symbol}")
+            return False
+        print(f"Buying {qty} shares of {symbol} at a limit of ${limit_price}")
+        req = LimitOrderRequest(
+            symbol=symbol,
+            qty=qty,
+            limit_price=limit_price,
+            side=OrderSide.BUY,
+            time_in_force=TimeInForce.GTC,
+            Class=OrderClass.OTO,
+            stop_loss=StopLossRequest(stop_price=stop_price),
+        )
+
+        res = self.trading_client.submit_order(req)
+        return res
+
+    def order_trailing_stop(self, symbol, trail_percent=0.2):
+        qty = self.get_stock_currently_owned(symbol)
+        if qty:
+            req = TrailingStopOrderRequest(
+                symbol=symbol,
+                qty=qty,
+                side=OrderSide.SELL,
+                time_in_force=TimeInForce.GTC,
+                trail_price=trail_percent,
+                trail_percent=None,
+            )
+
+            res = self.trading_client.submit_order(req)
+            return res
+        else:
+            print(f"❌ Not enough shares of {symbol} to sell")
+            return False
+
+    def get_stock_current_price(self, symbol):
+        req = StockQuotesRequest(symbol_or_symbols=[symbol])
+        res = self.historical_client.get_stock_latest_quote(req)
+        return res
+
+    def get_stock_currently_owned(self, symbol):
+        try:
+            position = self.trading_client.get_open_position(symbol)
+            return position.qty
+        except Exception as e:
+            print(f"Error getting position: {e}")
+            return 0
+
+    def cancel_all_open_orders(self):
+        self.trading_client.cancel_orders()
 
     def get_all_stock_data(self, symbols, days_back=730):
         """Download stock data for multiple symbols using a single Alpaca API call"""
@@ -40,7 +164,7 @@ class AlpacaClient:
             )
 
             # Get the data for all symbols
-            bars = self.client.get_stock_bars(request_params)
+            bars = self.historical_client.get_stock_bars(request_params)
 
             if not bars.data:
                 raise ValueError("No data found for any symbols")
