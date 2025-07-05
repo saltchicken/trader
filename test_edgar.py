@@ -1,49 +1,13 @@
-# from edgar import *
-# set_identity("john.eicher89@gmail.com")  # Required by SEC
-#
-# # Method 1: Search for SC 13 filings by company
-# company = Company("AAPL")  # Example: Apple
-# filings = company.get_filings(form="SC 13")  # Get all SC 13 filings
-#
-# # Method 2: Search more broadly for SC 13 filings
-# filings = get_filings(form="SC 13")
-#
-# # Get a specific filing
-# filing = filings[0]  # Get the most recent filing
-#
-# # Convert to structured data object
-# sc13_data = filing.obj()
-#
-# # Access reporting party information
-# # The exact method will depend on the specific SC 13 variant (SC 13D, SC 13G, etc.)
-# print(f"Filing form: {filing.form}")
-# print(f"Filing date: {filing.filing_date}")
-# print(f"Company: {filing.company}")
-#
-# # Extract text content for parsing
-# text_content = filing.text()
-#
-# For more detailed parsing, you might need to access specific sections
-#
-## -*- coding: utf-8 -*-
-"""
-
-SEC Filing Scraper
-@author: AdamGetbags
-
-"""
-
-# import modules
 import requests
+from lxml import etree
+from bs4 import BeautifulSoup
 import pandas as pd
 # pd.set_option("display.max_rows", None)      # Show all rows
 # pd.set_option("display.max_columns", None)   # Show all columns
 # pd.set_option("display.width", None)         # Don't wrap lines
 # pd.set_option("display.max_colwidth", None)  # Show full column contents
 
-# create request header
 headers = {'User-Agent': "john.eicher89@gmail.com"}
-
 
 # get all companies data
 companyTickers = requests.get(
@@ -98,13 +62,59 @@ allForms.columns
 allForms[['accessionNumber', 'reportDate', 'form']].head(50)
 # print(allForms['form'])
 filtered_forms = allForms[allForms['form'].str.contains(r'(SCHEDULE 13|SC 13)', case=False, na=False)]
-print(filtered_forms.iloc[0])
 # print(filtered_forms.iloc[11])
 # print(allForms.columns)
-
+form = filtered_forms.iloc[5]
+accession_number = form['accessionNumber'].replace("-","")
+print(accession_number)
+cik = cik
+primary_document = form['primaryDocument']
 # 10-Q metadata
 # result = allForms.iloc[11]['primaryDocument']
 # print(result)
+#
+url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number}/{primary_document}"
+print(url)
+# Download the XML content
+response = requests.get(url, headers=headers)
+xml_content = response.content
+
+# Try parsing with recovery in case of malformed XML
+try:
+    parser = etree.XMLParser(recover=True)
+    root = etree.fromstring(xml_content, parser=parser)
+
+    found_td = False
+
+    for elem in root.iter():
+        if not found_td:
+            # Find the <td> with the target text
+            if elem.tag == "td" and (elem.text and elem.text.strip() == "Names of Reporting Persons"):
+                found_td = True
+        else:
+            # After finding the td, look for the first <div>
+            if elem.tag == "div":
+                div_text = elem.text.strip() if elem.text else ''
+                print("Found <div> after <td>:", div_text)
+                break
+
+    # Pretty-print all top-level tags
+    # for elem in root.iter():
+    #     text = elem.text.strip() if elem.text else ''
+    #     # print(f"{elem.tag}: {text}")
+    #     if text and text == 'Names of Reporting Persons':
+    #         print("hello")
+
+except etree.XMLSyntaxError as e:
+    print("XMLSyntaxError:", e)
+    print("Falling back to BeautifulSoup...")
+
+    # Use BeautifulSoup as a fallback
+    soup = BeautifulSoup(xml_content, "lxml-xml")
+    # for elem in soup.find_all():
+    #     text = elem.text.strip() if elem.text else ''
+    #     print(f"{elem.name}: {text}")
+    target_cell = soup.find('td', string=lambda t: t and 'Names of Reporting Persons' in t)
 
 # get company facts data
 companyFacts = requests.get(
