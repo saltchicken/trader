@@ -1,8 +1,5 @@
 import finnhub
-import yfinance as yf
 import pandas as pd
-import json
-import numpy as np
 import time
 import threading
 from dotenv import load_dotenv
@@ -50,22 +47,9 @@ class FinanceClient:
     def get_profile(self, symbol):
         return self.client.company_profile2(symbol=symbol)
 
-    def print_profile(self, symbol):
-        print(json.dumps(self.get_profile(symbol), indent=4))
-
-    @RateLimiter(1, 1.25)
-    def get_current_quote(self, symbol):
-        return self.client.quote(symbol)
-
-    def print_current_quote(self, symbol):
-        print(json.dumps(self.get_current_quote(symbol), indent=4))
-
     @RateLimiter(1, 1.25)
     def get_financials(self, symbol):
         return self.client.financials_reported(symbol=symbol)
-
-    def print_financials(self, symbol):
-        print(json.dumps(self.get_financials(symbol), indent=4))
 
     @RateLimiter(1, 1.25)
     def get_metrics(self, symbol):
@@ -75,62 +59,9 @@ class FinanceClient:
         except Exception as e:
             return False
 
-    def print_metrics(self, symbol):
-        print(json.dumps(self.get_metrics(symbol), indent=4))
-
     @RateLimiter(1, 1.25)
     def get_filings(self, symbol, _from, to):
         return self.client.filings(symbol=symbol, _from=_from, to=to)
-
-    def print_filings(self, symbol, _from="2025-01-01", to="2025-06-24"):
-        print(json.dumps(self.get_filings(symbol, _from, to), indent=4))
-
-    @RateLimiter(1, 1.25)
-    def get_quote_history(self, symbol, period="1y"):
-        ticker = yf.Ticker(symbol)
-        data = ticker.history(period=period)
-        return data
-
-    @RateLimiter(1, 1.25)
-    def get_revenue_per_share_history(self, symbol):
-        ticker = yf.Ticker(symbol)
-        income_stmt = ticker.financials.T  # Income statement: Total Revenue
-        balance_sheet = (
-            ticker.balance_sheet.T
-        )  # Balance sheet: Common Shares Outstanding
-        if (
-            "Total Revenue" not in income_stmt.columns
-            or "Ordinary Shares Number" not in balance_sheet.columns
-        ):
-            return None
-        df = pd.concat(
-            [income_stmt["Total Revenue"], balance_sheet["Ordinary Shares Number"]],
-            axis=1,
-        )
-
-        # Rename columns
-        df.columns = ["Total Revenue", "Shares Outstanding"]
-        df["Year"] = (
-            df.index.year
-            if isinstance(df.index[0], pd.Timestamp)
-            else df.index.astype(str).str[:4]
-        )
-
-        # Calculate Revenue per Share
-        try:
-            df["Revenue Per Share"] = (
-                df["Total Revenue"] / df["Shares Outstanding"]
-            ).where(df["Shares Outstanding"] != 0)
-        except ZeroDivisionError:
-            df["Revenue Per Share"] = np.nan
-        # df.dropna(inplace=True)
-
-        # Display with most recent first
-        result = df.to_dict(orient="records")
-        return result
-        # return df[["Revenue Per Share"]]
-        #
-        #
 
     def get_all_stocks(self):
         symbols = self.client.stock_symbols("US")
