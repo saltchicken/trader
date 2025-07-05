@@ -1,29 +1,14 @@
-from .finance_client import FinanceClient
-from .database import DatabaseClient, Company
 from .agent import Trader
-import numpy as np
-import pandas as pd
-from backtesting import Backtest, Strategy
-from backtesting.lib import crossover
+
+from pathlib import Path
+import matplotlib.pyplot as plt
+
 from .strategies import (
     VolumeBreakoutStrategy,
     VolumeReversalStrategy,
     SimpleVolumeStrategy,
 )
 
-from pathlib import Path
-
-# pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", None)
-# pd.set_option("display.width", None)
-import matplotlib.pyplot as plt
-import ta
-import os
-import sys
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-from pprint import pprint
 
 style_path = Path(__file__).parent / "config" / "dark.mplstyle"
 plt.style.use(style_path)
@@ -33,54 +18,12 @@ def main():
     trader = Trader()
     df = trader.get_top()
     print(df.columns)
-    top_revenue_growth = df.sort_values("roe_ttm", ascending=False).head(20)
-    print(top_revenue_growth[["symbol", "roe_ttm"]])
+    # top_revenue_growth = df.sort_values("roe_ttm", ascending=False).head(20)
+    # print(top_revenue_growth[["symbol", "roe_ttm"]])
+
     # trader.update_symbols()
-    # trader.db.migrate("stock_data.db")
     # #
     # trader.daily_update()
-    # latest = trader.get_snapshots_from_past_day()
-    # print(latest)
-
-    # scores = trader.score_snapshots()
-    # composite_scores = trader.composite_score(scores)
-    # # print(composite_scores)
-    # top_scores = composite_scores.nlargest(5, "composite_score")
-    # for idx, row in top_scores.iterrows():
-    #     print(f"{row['symbol']}: {row['composite_score']:.2f}")
-    # print(scores)
-    #
-    # db.add_new_column("stock", "three_month_average_trading_volume", "FLOAT")
-    # top_revenue_growth = trader.get_top_by_metric("epsGrowth5Y", 5)
-    # print("\nTop 5 by Revenue Growth:")
-    # for idx, row in top_revenue_growth.iterrows():
-    #     print(f"{row['symbol']}: {row['epsGrowth5Y']:.2f}")
-
-    # trader.db.print_table("companies")
-    # trader.db.print_table("metric_snapshots")
-    # trader.db.print_table("current_metrics")
-    # company = trader.db.session.query(Company).filter_by(symbol="AAPL").first()
-
-    # if company:
-    #     snapshots = company.snapshots
-    #     for snapshot in snapshots:
-    #         print(snapshot.timestamp, snapshot.week52_high)
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
 
     # """Main function to run volume-based backtesting strategies"""
     #
@@ -202,48 +145,6 @@ def main():
     #     print("⏭️ Skipping optimization - AAPL data not available")
     #
     # print(f"\n✅ Analysis complete!")
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-
-    def quote_history_test():
-        data = trader.client.get_quote_history("T", "10y")
-        data["SMA_20"] = ta.trend.sma_indicator(data["Close"], window=20)
-        print(data)
-
-    def plot_close_data():
-        data = trader.client.get_quote_history("T", "10y")
-        plt.plot(data["Close"])
-        plt.show()
-
-    def filings_test():
-        filings = trader.client.get_filings("PSNL", "2022-01-01", "2025-12-31")
-
-        target_form = "8-K"
-        target_filings = [f for f in filings if f["form"] == target_form]
-        # print(target_filings)
-
-        df = pd.DataFrame(filings)
-        unique_forms = df["form"].unique().tolist()
-        print(unique_forms)
-
-    def ic_report():
-        financials = trader.client.get_financials("PSNL")
-        df = pd.DataFrame(financials)
-        for row in df["data"]:
-            print(row["year"])
-            pprint(row["report"]["ic"])
-
-    def basic_financials():
-        financials = trader.client.client.company_basic_financials("PSNL", "all")
-        pprint(financials)
 
 
 if __name__ == "__main__":

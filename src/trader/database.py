@@ -20,13 +20,13 @@ import numpy as np
 
 from datetime import date
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo  # Python 3.9+
-
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 import os
 
 
 from .log import logger
+from .finance_client import FinanceClient
 
 pd.set_option("display.float_format", "{:.2f}".format)
 
@@ -145,6 +145,7 @@ class CurrentMetrics(Base):
 
 class DatabaseClient:
     def __init__(self, filename):
+        self.client = FinanceClient()
         self.engine = create_engine(
             f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
         )
@@ -191,21 +192,58 @@ class DatabaseClient:
         )
 
     def update_symbols(self, companies):
-        logger.debug(companies)
-        try:
-            for company in companies:
-                row = Company(
-                    symbol=company["symbol"], description=company["description"]
-                )
-                self.session.add(row)
-            self.session.commit()
-            return True
-        except IntegrityError:
-            logger.error("IntegrityError")
-            self.session.rollback()
-            return False
+        companies = self.client.get_all_stocks()
+        new_companies = []
 
-    def daily_update(self, symbol, metrics):
+        for company in companies:
+            if not self.does_symbol_exist(company["symbol"]):
+                new_companies.append(company)
+
+        if new_companies:
+            logger.debug(f"Adding {len(new_companies)} new symbols.")
+
+            try:
+                for company in companies:
+                    row = Company(
+                        symbol=company["symbol"], description=company["description"]
+                    )
+                    self.session.add(row)
+                self.session.commit()
+                return True
+            except IntegrityError:
+                logger.error("IntegrityError")
+                self.session.rollback()
+                return False
+        else:
+            logger.debug("No new symbols to add.")
+            return True
+
+    def is_within_allowed_update_window(self):
+        now = datetime.now(ZoneInfo("America/Los_Angeles"))
+        if now.hour >= 18 or now.hour < 2:
+            return True
+        return False
+
+    def daily_update(self):
+        if not self.is_within_allowed_update_window():
+            logger.error("Not within allowed update window. Skipping.")
+            return
+
+        for symbol in self.get_all_symbols():
+            logger.debug(symbol)
+            if self.was_updated_in_nightly_window(symbol):
+                logger.warning(
+                    f"{symbol} already updated during the current nightly window. Skipping."
+                )
+                continue
+
+            metrics = self.client.get_metrics(symbol)
+            if metrics:
+                self.update_symbol(symbol, metrics["metric"])
+            else:
+                logger.error("There was an error. Skipping")
+
+    def update_symbol(self, symbol, metrics):
         # Ensure all expected keys exist in metrics
         for key in KEY_MAPPING:
             if key not in metrics:
