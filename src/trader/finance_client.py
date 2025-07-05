@@ -56,7 +56,7 @@ class FinanceClient:
         try:
             metrics = self.client.company_basic_financials(symbol=symbol, metric="all")
             return metrics
-        except Exception as e:
+        except Exception:
             return False
 
     @RateLimiter(1, 1.25)
