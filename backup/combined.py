@@ -1,10 +1,43 @@
-import yfinance as yf
+# import yfinance as yf
+from external_api import AlpacaClient
 import pandas as pd
 import matplotlib.pyplot as plt
 
-plt.style.use("dark.mplstyle")
+from datetime import datetime, timedelta
+# plt.style.use("dark.mplstyle")
 
 symbols = ["AAPL", "MSFT", "NVDA", "GOOGL", "TSLA", "SPY"]
+# symbols = ["AAPL"]
+
+
+def check_crosses(df):
+    df = calculate_indicators(df)
+    today = df.iloc[-1]
+    yesterday = df.iloc[-2]
+
+    # Check for MACD cross today
+    bullish_macd_today = (yesterday["macd"] < yesterday["signal"]) and (
+        today["macd"] > today["signal"]
+    )
+    bearish_macd_today = (yesterday["macd"] > yesterday["signal"]) and (
+        today["macd"] < today["signal"]
+    )
+
+    # Check for Golden/Death cross today
+    golden_cross_today = (yesterday["sma_50"] < yesterday["sma_200"]) and (
+        today["sma_50"] > today["sma_200"]
+    )
+    death_cross_today = (yesterday["sma_50"] > yesterday["sma_200"]) and (
+        today["sma_50"] < today["sma_200"]
+    )
+
+    result = {
+        "bullish_macd": bullish_macd_today,
+        "bearish_macd": bearish_macd_today,
+        "golden_cross": golden_cross_today,
+        "death_cross": death_cross_today,
+    }
+    return result
 
 
 def calculate_indicators(df):
@@ -41,11 +74,9 @@ def find_crosses(df):
     return df[bullish_macd], df[bearish_macd], df[golden_cross], df[death_cross]
 
 
-for symbol in symbols:
-    df = yf.download(symbol, period="5y", interval="1d")
+def graph_crosses(df, symbol):
     df = calculate_indicators(df)
     bull_macd, bear_macd, golden, death = find_crosses(df)
-
     plt.figure(figsize=(14, 6))
     plt.plot(df["Close"], label="Close Price", color="black", linewidth=1.2)
 
@@ -92,3 +123,12 @@ for symbol in symbols:
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+alpaca = AlpacaClient()
+data = alpaca.get_all_stock_data(symbols, days_back=730)
+
+for symbol in symbols:
+    df = data[symbol]
+    print(check_crosses(df))
+    # graph_crosses(df, symbol)
