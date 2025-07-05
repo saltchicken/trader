@@ -1,6 +1,5 @@
 from sqlalchemy import (
     create_engine,
-    text,
     Column,
     Integer,
     String,
@@ -12,12 +11,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy import text
 
 from sqlalchemy.exc import IntegrityError
 import pandas as pd
 import numpy as np
 
-pd.set_option("display.float_format", "{:.2f}".format)
 
 from datetime import date
 from datetime import datetime, timedelta
@@ -28,6 +27,8 @@ import os
 
 
 from .log import logger
+
+pd.set_option("display.float_format", "{:.2f}".format)
 
 load_dotenv()
 pg_user = os.getenv("PG_USER")
@@ -144,7 +145,6 @@ class CurrentMetrics(Base):
 
 class DatabaseClient:
     def __init__(self, filename):
-        # self.engine = create_engine(f"sqlite:///{filename}.db")
         self.engine = create_engine(
             f"postgresql+psycopg2://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
         )
@@ -152,31 +152,12 @@ class DatabaseClient:
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
-    # def add_new_column(self, table, column_name, column_type):
-    #     self.session.execute(
-    #         text(f"ALTER TABLE {table} ADD COLUMN {column_name} {column_type}")
-    #     )
-    #
-    def migrate(self, filename):
-        self.child_engine = create_engine(f"sqlite:///{filename}")
-        Base.metadata.create_all(self.child_engine)
-        Session = sessionmaker(bind=self.child_engine)
-        self.child_session = Session()
-
-        # Migrate Companies
-        for company in self.child_session.query(Company).all():
-            self.session.merge(company)
-
-        # Migrate MetricSnapshots
-        for snapshot in self.child_session.query(MetricSnapshot).all():
-            self.session.merge(snapshot)
-
-        # Migrate CurrentMetrics
-        for cm in self.child_session.query(CurrentMetrics).all():
-            self.session.merge(cm)
-
-        self.session.commit()
-        print("Migration completed!")
+    def run_query(self, query):
+        query = text(query)
+        rows = self.session.execute(query)
+        data = [dict(row._mapping) for row in rows]
+        df = pd.DataFrame(data)
+        return df
 
     def was_updated_in_nightly_window(self, symbol):
         now = datetime.now(ZoneInfo("America/Los_Angeles"))
@@ -276,51 +257,6 @@ class DatabaseClient:
 
         current.timestamp = func.now()
         self.session.commit()
-
-    # def daily_update(self, symbol, metrics):
-    #     # Ensure keys from KEY_MAPPING exist in metrics; fill with NaN if missing
-    #     for key in KEY_MAPPING:
-    #         if key not in metrics:
-    #             metrics[key] = np.nan
-    #
-    #     # Build a dictionary of ORM attributes to update
-    #     update_dict = {}
-    #     for key, attr_name in KEY_MAPPING.items():
-    #         if hasattr(MetricSnapshot, attr_name):
-    #             update_dict[getattr(MetricSnapshot, attr_name)] = metrics[key]
-    #
-    #     rows_updated = (
-    #         self.session.query(MetricSnapshot)
-    #         .filter_by(symbol=symbol)
-    #         .update(update_dict, synchronize_session=False)
-    #     )
-    #
-    #     if rows_updated:
-    #         self.session.commit()
-    #     else:
-    #         print(f"No update: symbol '{symbol}' not found")
-
-    # Annual
-    def update_revenue_per_share_annual(self, symbol, revenue_per_share_annual):
-        rows_updated = (
-            self.session.query(MetricSnapshot)
-            .filter_by(symbol=symbol)
-            .update(
-                {
-                    MetricSnapshot.revenue_per_share_annual: revenue_per_share_annual
-                    # `last_updated` will be auto-updated because of `onupdate=func.now()`
-                },
-                synchronize_session=False,
-            )
-        )
-        if rows_updated:
-            self.session.commit()
-        else:
-            print(f"No update: symbol '{symbol}' not found")
-
-    def print_table(self, table):
-        df = pd.read_sql_table(table, con=self.engine)
-        print(df)
 
     def does_symbol_exist(self, symbol):
         return (

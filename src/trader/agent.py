@@ -1,6 +1,5 @@
 from sqlalchemy import func, desc
 from sqlalchemy.orm import aliased
-from sqlalchemy import text
 from .finance_client import FinanceClient
 from .database import DatabaseClient, Company, MetricSnapshot
 from datetime import datetime, timedelta
@@ -74,32 +73,6 @@ class Trader:
             return True
         return False
 
-    def get_filtered_metrics(self):
-        """Get metrics where all key financial values are not NULL and return as DataFrame"""
-        from sqlalchemy import text
-
-        query = text("""
-        SELECT * FROM metric_snapshots 
-        WHERE pe_ttm IS NOT NULL AND 
-        roe_ttm IS NOT NULL AND
-        long_term_debt_equity_quarterly IS NOT NULL AND
-        eps_ttm IS NOT NULL AND
-        revenue_growth_5y IS NOT NULL
-        ORDER BY symbol ASC
-        """)
-
-        result = self.db.session.execute(query)
-        rows = result.fetchall()
-
-        # Convert rows to dictionaries using _mapping attribute
-        data = [dict(row._mapping) for row in rows]
-
-        # Create DataFrame
-        df = pd.DataFrame(data)
-
-        logger.info(f"Found {len(df)} metrics with no NULL values in key fields")
-        return df
-
     def filter_stocks(self, stock_list):
         # Set your investment criteria here
         filtered_stocks = [
@@ -118,9 +91,15 @@ class Trader:
         return df
 
     def get_top(self):
-        """Get filtered metrics and convert to DataFrame efficiently"""
-        # Get filtered metrics from database
-        companies = self.get_filtered_metrics()
+        companies = self.db.run_query("""
+        SELECT * FROM metric_snapshots 
+        WHERE pe_ttm IS NOT NULL AND 
+        roe_ttm IS NOT NULL AND
+        long_term_debt_equity_quarterly IS NOT NULL AND
+        eps_ttm IS NOT NULL AND
+        revenue_growth_5y IS NOT NULL
+        ORDER BY symbol ASC
+        """)
         # logger.info(f"Processing {len(companies)} companies that match filter criteria")
 
         # Apply filtering criteria directly to the DataFrame
