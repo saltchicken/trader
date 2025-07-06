@@ -61,12 +61,15 @@ allForms = pd.DataFrame.from_dict(
 allForms.columns
 allForms[['accessionNumber', 'reportDate', 'form']].head(50)
 # print(allForms['form'])
-filtered_forms = allForms[allForms['form'].str.contains(r'(SCHEDULE 13|SC 13)', case=False, na=False)]
+# filtered_forms = allForms[allForms['form'].str.contains(r'(SCHEDULE 13|SC 13)', case=False, na=False)]
+filtered_forms = allForms[allForms["primaryDocDescription"].str.contains(r'(SCHEDULE 13|SC 13)', case=False, na=False)]
+# filtered_forms = allForms[allForms["primaryDocDescription"].str.contains(r'(10-K|10-Q)', case=False, na=False)]
+print(filtered_forms)
 # print(filtered_forms.iloc[11])
 # print(allForms.columns)
-form = filtered_forms.iloc[5]
+form = filtered_forms.iloc[0]
 accession_number = form['accessionNumber'].replace("-","")
-print(accession_number)
+# print(accession_number)
 cik = cik
 primary_document = form['primaryDocument']
 # 10-Q metadata
@@ -77,7 +80,9 @@ url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number}/{primar
 print(url)
 # Download the XML content
 response = requests.get(url, headers=headers)
+print(response)
 xml_content = response.content
+# print(response.content)
 
 # Try parsing with recovery in case of malformed XML
 try:
@@ -90,7 +95,11 @@ try:
         if not found_td:
             # Find the <td> with the target text
             if elem.tag == "td" and (elem.text and elem.text.strip() == "Names of Reporting Persons"):
+                print("Found <td> with target text:", elem.text.strip())
                 found_td = True
+            if elem.tag == "font" and (elem.text and elem.text.strip() == "Names of Reporting Persons"):
+                print("Found <font> with target text:", elem.text.strip())
+                # found_td = True
         else:
             # After finding the td, look for the first <div>
             if elem.tag == "div":
