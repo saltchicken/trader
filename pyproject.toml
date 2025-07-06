@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "trader"
 version = "0.1.0"
 dependencies = [
-  "yfinance",
   "finnhub-python",
   "matplotlib",
   "numpy",

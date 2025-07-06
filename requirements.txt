@@ -1,4 +1,4 @@
-yfinance
+# yfinance
 finnhub-python
 matplotlib
 numpy
@@ -11,6 +11,6 @@ loguru
 alpaca-py
 edgartools
 backtesting
-git+https://github.com/Arelle/Arelle.git
-sec_edgar_downloader
+# git+https://github.com/Arelle/Arelle.git
+# sec_edgar_downloader
 psycopg2-binary
