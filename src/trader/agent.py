@@ -60,7 +60,7 @@ WITH latest AS (
         )
 
         row = company[company["symbol"] == symbol]
-        if row.empty:
+        if row.empty or row["composite_score"].isnull().values.any():
             logger.warning(f"No data to calculate composite score for {symbol}.")
             return 0.0  # Default to neutral score if no data
         # Sort by composite score (ascending = better rank)
@@ -73,12 +73,12 @@ WITH latest AS (
 
         return score
 
-    def calculate_cross_score(self, symbol, cutoff=14):
-        # TODO: Determine how many days_back are needed with given cutoff
-        data = self.alpaca.get_all_stock_data([symbol], days_back=730)
-        df = data[symbol]
+    def calculate_cross_score(self, symbol, stock_data_cache, cutoff=14):
+        df = stock_data_cache.get(symbol)
         if df is None:
-            logger.warning(f"No data for {symbol}")
+            logger.warning(
+                f"No data for {symbol}. Skipping cross score and returing 0.0"
+            )
             return 0.0  # Default to neutral score if no data
         df = self.calculate_indicators(df)
         bullish_macd, bearish_macd, golden_cross, death_cross = self.find_crosses(df)
@@ -126,11 +126,22 @@ WITH latest AS (
             return 0.0  # Avoid division by zero
 
         exchange_info = self.alpaca.get_stock_current_price(symbol)
+        try:
+            exchange_info.get(symbol)
+        except Exception as e:
+            print(f"❌ No price data for {symbol}: {e}")
+            return 0.0  # Default to neutral score if no price data
+        if exchange_info.get(symbol) is None:
+            return 0.0  # Default to neutral score if no price data
         current_price = exchange_info[symbol].ask_price
         if current_price == 0.0:
             return 0.0  # Default to neutral score if price is zero
         if current_price is None:
             return 0.0  # Default to neutral score if no price data
+        if current_price > high:
+            return 0.0
+        if current_price < low:
+            return 0.0
 
         position = float((current_price - low) / spread)
         score = position * -2 + 1  # Normalize to [-1, 1]
@@ -156,25 +167,27 @@ WITH latest AS (
 
         self.db.session.commit()
 
-    # Example usage
-    def calculate_and_update_scores(self, symbol):
-        # Calculate your scores
-        week52_score = self.calculate_week52_score(symbol)
-        print(f"Week 52 Score: {week52_score}")
-        cross_score = self.calculate_cross_score(symbol)
-        print(f"Cross Score: {cross_score}")
-        composite_score = self.calculate_composite_score(symbol)
-        print(f"Composite Score: {composite_score}")
+    def calculate_and_update_scores(self, symbols):
+        # TODO: Determine how many days_back are needed with given cutoff for calculate_cross_score
+        stock_data_cache = self.alpaca.get_all_stock_data(symbols, days_back=730)
+        for symbol in symbols:
+            print(f"Calculating scores for {symbol}")
+            week52_score = self.calculate_week52_score(symbol)
+            print(f"Week 52 Score: {week52_score}")
+            cross_score = self.calculate_cross_score(symbol, stock_data_cache)
+            print(f"Cross Score: {cross_score}")
+            composite_score = self.calculate_composite_score(symbol)
+            print(f"Composite Score: {composite_score}")
 
-        # Update the CurrentMetrics table
-        self.update_metric_score(
-            symbol,
-            {
-                "week52_score": week52_score,
-                "cross_score": cross_score,
-                "metrics_composite_score": composite_score,
-            },
-        )
+            # Update the CurrentMetrics table
+            self.update_metric_score(
+                symbol,
+                {
+                    "week52_score": week52_score,
+                    "cross_score": cross_score,
+                    "metrics_composite_score": composite_score,
+                },
+            )
 
     def calculate_indicators(self, df):
         # MACD
