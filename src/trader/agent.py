@@ -1,15 +1,212 @@
-from .database import DatabaseClient
+from .database import DatabaseClient, CurrentMetrics
 from .external_api import AlpacaClient
 
 from backtesting import Backtest
+from datetime import datetime, timedelta, timezone
 
 from .log import logger
+
+# df = self.get_top()
+# companies = df["symbol"].to_list()
 
 
 class Trader:
     def __init__(self):
         self.db = DatabaseClient("stock_data")
         self.alpaca = AlpacaClient()
+
+    def calculate_composite_score(self, symbol):
+        company = self.db.run_query("""
+WITH latest AS (
+        SELECT symbol, MAX(timestamp) AS latest_timestamp
+        FROM metric_snapshots
+        GROUP BY symbol
+        )
+    SELECT *
+    FROM metric_snapshots ms
+    JOIN latest l ON ms.symbol = l.symbol AND ms.timestamp = l.latest_timestamp
+    WHERE pe_ttm IS NOT NULL AND 
+        roe_ttm IS NOT NULL AND
+        long_term_debt_equity_quarterly IS NOT NULL AND
+        eps_ttm IS NOT NULL AND
+        revenue_growth_5y IS NOT NULL
+    ORDER BY ms.symbol ASC
+        """)
+
+        if company.empty:
+            logger.warning(f"No data to calculate composite score for {symbol}.")
+            return 0.0  # Default to neutral score if no data
+
+        # Create ranking for each metric (lower rank is better)
+        company["pe_rank"] = company["pe_ttm"].rank(
+            method="min", ascending=True, pct=True
+        )  # Lower PE is better
+        company["roe_rank"] = company["roe_ttm"].rank(
+            method="min", ascending=False, pct=True
+        )  # Higher ROE is better
+        company["debt_rank"] = company["long_term_debt_equity_quarterly"].rank(
+            method="min", ascending=True, pct=True
+        )  # Lower debt is better
+        company["growth_rank"] = company["revenue_growth_5y"].rank(
+            method="min", ascending=False, pct=True
+        )  # Higher growth is better
+
+        # Calculate composite score (lower is better)
+        company["composite_score"] = (
+            company["pe_rank"] * 0.25
+            + company["roe_rank"] * 0.25
+            + company["debt_rank"] * 0.25
+            + company["growth_rank"] * 0.25
+        )
+
+        row = company[company["symbol"] == symbol]
+        if row.empty:
+            logger.warning(f"No data to calculate composite score for {symbol}.")
+            return 0.0  # Default to neutral score if no data
+        # Sort by composite score (ascending = better rank)
+        # sorted_companies = companies.sort_values("composite_score")
+
+        # logger.info(f"Ranked {len(sorted_companies)} companies by composite score")
+        # print(f"len company: {len(company)}")
+        score = float(row["composite_score"].iloc[0])
+        score = score * 2 - 1  # Normalize to [-1, 1]
+
+        return score
+
+    def calculate_cross_score(self, symbol, cutoff=14):
+        # TODO: Determine how many days_back are needed with given cutoff
+        data = self.alpaca.get_all_stock_data([symbol], days_back=730)
+        df = data[symbol]
+        if df is None:
+            logger.warning(f"No data for {symbol}")
+            return 0.0  # Default to neutral score if no data
+        df = self.calculate_indicators(df)
+        bullish_macd, bearish_macd, golden_cross, death_cross = self.find_crosses(df)
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=cutoff)
+        bullish_macd_recent = bullish_macd[bullish_macd.index >= cutoff]
+        bearish_macd_recent = bearish_macd[bearish_macd.index >= cutoff]
+        golden_cross_recent = golden_cross[golden_cross.index >= cutoff]
+        death_cross_recent = death_cross[death_cross.index >= cutoff]
+        bullish_count = len(bullish_macd_recent)
+        bearish_count = len(bearish_macd_recent)
+        golden_count = len(golden_cross_recent)
+        death_count = len(death_cross_recent)
+        total_count = bullish_count + bearish_count + golden_count + death_count
+        # print(
+        #     f"Total count: {total_count} | Bullish: {bullish_count} | Bearish: {bearish_count} | Golden: {golden_count} | Death: {death_count}"
+        # )
+        if total_count == 0:
+            return 0.0
+        bullish_score = bullish_count / total_count
+        bearish_score = bearish_count / total_count
+        golden_score = golden_count / total_count
+        death_score = death_count / total_count
+        cross_score = (bullish_score + golden_score) - (bearish_score + death_score)
+        return cross_score
+
+    def calculate_week52_score(self, symbol):
+        sql = """
+        SELECT week52_high, week52_low
+        FROM metric_snapshots
+        WHERE symbol = :symbol
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+        result = self.db.run_query(sql, {"symbol": symbol})
+        if result.empty:
+            return 0.0  # Default to neutral score if no data
+
+        high = result["week52_high"].values[0]
+        low = result["week52_low"].values[0]
+        print(f"High: {high}, Low: {low}")
+
+        spread = high - low
+        if spread == 0:
+            return 0.0  # Avoid division by zero
+
+        exchange_info = self.alpaca.get_stock_current_price(symbol)
+        current_price = exchange_info[symbol].ask_price
+        if current_price == 0.0:
+            return 0.0  # Default to neutral score if price is zero
+        if current_price is None:
+            return 0.0  # Default to neutral score if no price data
+
+        position = float((current_price - low) / spread)
+        score = position * -2 + 1  # Normalize to [-1, 1]
+        return score
+
+    def update_metric_score(self, symbol, score_data):
+        """Update scores in the CurrentMetrics table
+
+        Args:
+            symbol: Stock symbol
+            score_data: Dict with score values (e.g., {'week52_score': 0.85})
+        """
+        current = self.db.session.query(CurrentMetrics).filter_by(symbol=symbol).first()
+
+        if not current:
+            current = CurrentMetrics(symbol=symbol)
+            self.db.session.add(current)
+
+        # Update fields from the provided score_data
+        for field, value in score_data.items():
+            if hasattr(current, field):
+                setattr(current, field, value)
+
+        self.db.session.commit()
+
+    # Example usage
+    def calculate_and_update_scores(self, symbol):
+        # Calculate your scores
+        week52_score = self.calculate_week52_score(symbol)
+        print(f"Week 52 Score: {week52_score}")
+        cross_score = self.calculate_cross_score(symbol)
+        print(f"Cross Score: {cross_score}")
+        composite_score = self.calculate_composite_score(symbol)
+        print(f"Composite Score: {composite_score}")
+
+        # Update the CurrentMetrics table
+        self.update_metric_score(
+            symbol,
+            {
+                "week52_score": week52_score,
+                "cross_score": cross_score,
+                "metrics_composite_score": composite_score,
+            },
+        )
+
+    def calculate_indicators(self, df):
+        # MACD
+        df["ema_12"] = df["Close"].ewm(span=12, adjust=False).mean()
+        df["ema_26"] = df["Close"].ewm(span=26, adjust=False).mean()
+        df["macd"] = df["ema_12"] - df["ema_26"]
+        df["signal"] = df["macd"].ewm(span=9, adjust=False).mean()
+
+        # Moving Averages
+        df["sma_50"] = df["Close"].rolling(window=50).mean()
+        df["sma_200"] = df["Close"].rolling(window=200).mean()
+
+        return df
+
+    def find_crosses(self, df):
+        # MACD Crosses
+        bullish_macd = (df["macd"].shift(1) < df["signal"].shift(1)) & (
+            df["macd"] > df["signal"]
+        )
+        bearish_macd = (df["macd"].shift(1) > df["signal"].shift(1)) & (
+            df["macd"] < df["signal"]
+        )
+
+        # Golden/Death Crosses
+        golden_cross = (df["sma_50"].shift(1) < df["sma_200"].shift(1)) & (
+            df["sma_50"] > df["sma_200"]
+        )
+        death_cross = (df["sma_50"].shift(1) > df["sma_200"].shift(1)) & (
+            df["sma_50"] < df["sma_200"]
+        )
+
+        return df[bullish_macd], df[bearish_macd], df[golden_cross], df[death_cross]
 
     def get_crosses(self, symbols):
         data = self.alpaca.get_all_stock_data(symbols, days_back=730)
@@ -76,13 +273,20 @@ class Trader:
 
     def get_top(self):
         companies = self.db.run_query("""
-        SELECT * FROM metric_snapshots 
-        WHERE pe_ttm IS NOT NULL AND 
+WITH latest AS (
+        SELECT symbol, MAX(timestamp) AS latest_timestamp
+        FROM metric_snapshots
+        GROUP BY symbol
+        )
+    SELECT *
+    FROM metric_snapshots ms
+    JOIN latest l ON ms.symbol = l.symbol AND ms.timestamp = l.latest_timestamp
+    WHERE pe_ttm IS NOT NULL AND 
         roe_ttm IS NOT NULL AND
         long_term_debt_equity_quarterly IS NOT NULL AND
         eps_ttm IS NOT NULL AND
         revenue_growth_5y IS NOT NULL
-        ORDER BY symbol ASC
+    ORDER BY ms.symbol ASC
         """)
 
         # Create ranking for each metric (lower rank is better)

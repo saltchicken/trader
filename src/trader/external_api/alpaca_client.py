@@ -50,7 +50,7 @@ class AlpacaClient:
         self.positions = self.trading_client.get_all_positions()
 
     def order_buy_market_bracket(self, symbol, notional, limit_price, stop_price):
-        print(f"Buying ${notional} of shares of {symbol} at a limit of ${limit_price}")
+        print(f"Buying ${notional} of shares of {symbol} at market price. Take profit at ${limit_price} and stop loss at ${stop_price}")
         req = MarketOrderRequest(
             symbol=symbol,
             notional=notional,

@@ -134,11 +134,11 @@ class CurrentMetrics(Base):
     __tablename__ = "current_metrics"
 
     symbol = Column(String, ForeignKey("companies.symbol"), primary_key=True)
-    timestamp = Column(DateTime, default=func.now())  # when the snapshot was recorded
+    updated_timestamp = Column(DateTime, default=func.now(), onupdate=func.now())
 
-    week52_high = Column(Float)
-    revenue_per_share_annual = Column(Float)
-    month3_average_trading_volume = Column(Float)
+    week52_score = Column(Float)
+    cross_score = Column(Float)
+    metrics_composite_score = Column(Float)
 
     company = relationship("Company", back_populates="current_metrics")
 
@@ -153,9 +153,9 @@ class DatabaseClient:
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
 
-    def run_query(self, query):
+    def run_query(self, query, params=None):
         query = text(query)
-        rows = self.session.execute(query)
+        rows = self.session.execute(query, params or {})
         data = [dict(row._mapping) for row in rows]
         df = pd.DataFrame(data)
         return df

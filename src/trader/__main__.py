@@ -9,24 +9,35 @@ style_path = Path(__file__).parent / "config" / "dark.mplstyle"
 plt.style.use(style_path)
 
 
+def has_stock_gained_10_percent(symbol, start_date, end_date):
+    pass
+
+
 def main():
     trader = Trader()
-
-    # trader.alpaca.cancel_all_open_orders()
-
-    # for order in trader.alpaca.orders:
-    #     print(order.symbol, order.qty, order.side, order.status, order.type)
-
-    # trader.alpaca.order_buy_market_bracket("AAPL", 100, 150, 140)
+    # trader.calculate_and_update_scores("AAPL")
 
     # symbols = ["AAPL", "MSFT", "GOOGL"]
     # trader.backtest_optimize(symbols, SimpleVolumeStrategy)
 
-    df = trader.get_top()
-    top_companies = df["symbol"].head(20).to_list()
-    results = trader.get_crosses(top_companies)
-    for company in top_companies:
-        print(company, trader.interpret_crosses(results[company]))
+    # df = trader.get_top()
+    # top_companies = df["symbol"].head(50).to_list()
+    # results = trader.get_crosses(top_companies)
+    # for company in top_companies:
+    #     if trader.interpret_crosses(results[company]) == "buy":
+    #         print(f"Buy {company}")
+    #         exchange_info = trader.alpaca.get_stock_current_price(company)
+    #         current_ask_price = exchange_info[company].ask_price
+    #         if exchange_info[company].ask_exchange == ' ': #TODO: Fix magically checking for ' '
+    #             print(f"❌ No ask price for {company}")
+    #             if current_ask_price == 0.0:
+    #                 print(f"❌ Ask price is 0 for {company}")
+    #             continue
+    #         take_profit = 1.1 * current_ask_price
+    #         stop_loss = 0.9 * current_ask_price
+    #         print(f"Take profit: {take_profit}, Stop loss: {stop_loss}")
+    #         #TODO: Remove magic number of 1000. Calculate notional based on account balance
+    #         trader.alpaca.order_buy_market_bracket(company, 1000, take_profit, stop_loss)
 
     # result = df.sort_values("composite_score", ascending=True).head(50)
     # print(
