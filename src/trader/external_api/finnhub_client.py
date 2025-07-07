@@ -48,7 +48,7 @@ class FinnHubClient:
 
     @RateLimiter(1, 1.25)
     def get_financials(self, symbol):
-        return self.client.financials_reported(symbol=symbol)
+        return self.client.financials_reported(symbol=symbol, freq="quarterly")
 
     @RateLimiter(1, 1.25)
     def get_metrics(self, symbol):
