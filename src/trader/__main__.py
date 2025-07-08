@@ -16,32 +16,12 @@ def has_stock_gained_10_percent(symbol, start_date, end_date):
 
 def main():
     trader = Trader()
+    # trader.db.financials_update()
+    trader.alpaca.order_buy_market_bracket("HLMN", 1000)
 
-
-    financials = trader.db.client.get_financials("GOOGL")
-    revenue = None
-    earnings_per_share_diluted = None
-    net_income_loss = None
-    for data in financials["data"]:
-        if data["year"] == 2025 and data["quarter"] == 1:
-            report = data["report"]
-            for key in report.keys():
-                for item in report[key]:
-                    if item["concept"] == "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax":
-                        revenue = item["value"]
-                    if item["concept"] == "us-gaap_EarningsPerShareDiluted":
-                        earnings_per_share_diluted = item["value"]
-                    if item["concept"] == "us-gaap_NetIncomeLoss":
-                        net_income_loss = item["value"]
-
-    print(revenue)
-    print(earnings_per_share_diluted)
-    print(net_income_loss)
-
-    net_profit_margin = (net_income_loss / revenue) * 100
-    print(net_profit_margin)
-
-
+    # sector
+    # cik
+    # financials
 
     # symbols = trader.db.get_all_symbols()
     # chunk_size = 100
@@ -51,12 +31,6 @@ def main():
     #     print(chunk)
     #     trader.calculate_and_update_scores(chunk)
     #     time.sleep(1.0)
-
-
-
-
-
-
 
     # symbols = ["AAPL", "MSFT", "GOOGL"]
     # trader.backtest_optimize(symbols, SimpleVolumeStrategy)

@@ -8,6 +8,7 @@ from sqlalchemy import (
     Date,
     func,
     ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -89,6 +90,24 @@ class Company(Base):
     snapshots = relationship("MetricSnapshot", back_populates="company")
     current_metrics = relationship(
         "CurrentMetrics", back_populates="company", uselist=False
+    )
+
+
+class FinancialSnapshot(Base):
+    __tablename__ = "financial_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, ForeignKey("companies.symbol"), nullable=False)
+    timestamp = Column(DateTime, default=func.now())
+    year = Column(Integer, nullable=False)
+    quarter = Column(Integer, nullable=False)
+    revenue = Column(Float)
+    earnings_per_share_diluted = Column(Float)
+    net_income_loss = Column(Float)
+    net_profit_margin = Column(Float)
+
+    __table_args__ = (
+        UniqueConstraint("symbol", "year", "quarter", name="uix_financial_snapshot"),
     )
 
 
@@ -223,6 +242,57 @@ class DatabaseClient:
         if now.hour >= 18 or now.hour < 2:
             return True
         return False
+
+    def financials_update(self):
+        for symbol in self.get_all_symbols():
+            # TODO: Check if recently updated already
+            logger.debug(symbol)
+            current_year = datetime.now().year
+            current_quarter = (datetime.now().month - 1) // 3 + 1
+            financials = self.client.get_financials(symbol)
+            # logger.debug(financials)
+            revenue = None
+            earnings_per_share_diluted = None
+            net_income_loss = None
+            for data in financials["data"]:
+                if data["year"] == 2025 and data["quarter"] == 1:
+                    report = data["report"]
+                    for key in report.keys():
+                        for item in report[key]:
+                            if (
+                                item["concept"]
+                                == "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax"
+                            ):
+                                revenue = item["value"]
+                            if item["concept"] == "us-gaap_EarningsPerShareDiluted":
+                                earnings_per_share_diluted = item["value"]
+                            if item["concept"] == "us-gaap_NetIncomeLoss":
+                                net_income_loss = item["value"]
+
+            if not revenue or not net_income_loss or not earnings_per_share_diluted:
+                logger.error(f"Incomplete financials for {symbol}. Skipping")
+                continue
+            net_profit_margin = (net_income_loss / revenue) * 100
+            # print(revenue)
+            # print(earnings_per_share_diluted)
+            # print(net_income_loss)
+            #
+            # print(net_profit_margin)
+            try:
+                snapshot = FinancialSnapshot(
+                    symbol=symbol,
+                    year=2025,
+                    quarter=1,
+                    revenue=revenue,
+                    earnings_per_share_diluted=earnings_per_share_diluted,
+                    net_income_loss=net_income_loss,
+                    net_profit_margin=net_profit_margin,
+                )
+                self.session.add(snapshot)
+                self.session.commit()
+            except IntegrityError:
+                logger.error("IntegrityError")
+                self.session.rollback()
 
     def daily_update(self, ignore_window=False):
         if not ignore_window:

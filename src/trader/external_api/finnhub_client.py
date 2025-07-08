@@ -48,7 +48,13 @@ class FinnHubClient:
 
     @RateLimiter(1, 1.25)
     def get_financials(self, symbol):
-        return self.client.financials_reported(symbol=symbol, freq="quarterly")
+        try:
+            financials_reported = self.client.financials_reported(
+                symbol=symbol, freq="quarterly"
+            )
+        except Exception:
+            return False
+        return financials_reported
 
     @RateLimiter(1, 1.25)
     def get_metrics(self, symbol):
@@ -71,7 +77,25 @@ class FinnHubClient:
         # df_filtered = df_filtered[~df_filtered["symbol"].str.contains(r"\.")]
 
         # print(f"Filtered count: {len(df_filtered)}")
-        return df_filtered[["symbol", "description"]].to_dict(orient="records")
+        symbols = df_filtered["symbol"].to_list()
+        for symbol in symbols:
+            profile = self.get_profile(symbol)
+            print("dljalskdjf")
+            print(profile)
+            print("akjsldfjkaslkdjf")
+            if profile and "name" in profile:
+                df_filtered.loc[df_filtered["symbol"] == symbol, "sector"] = profile[
+                    "finnhubIndustry"
+                ]
+                df_filtered.loc[df_filtered["symbol"] == symbol, "ipo"] = profile["ipo"]
+                df_filtered.loc[df_filtered["symbol"] == symbol, "weburl"] = profile[
+                    "weburl"
+                ]
+                print(df_filtered)
+
+        return df_filtered[
+            ["symbol", "description", "ipo", "weburl", "sector"]
+        ].to_dict(orient="records")
         # return df_filtered["symbol"].tolist()
         #
 
