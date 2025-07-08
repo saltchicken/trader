@@ -86,6 +86,9 @@ class Company(Base):
 
     symbol = Column(String, primary_key=True)
     description = Column(String)
+    ipo = Column(Date)
+    weburl = Column(String)
+    sector = Column(String)
 
     snapshots = relationship("MetricSnapshot", back_populates="company")
     current_metrics = relationship(
@@ -210,6 +213,16 @@ class DatabaseClient:
             is not None
         )
 
+    def fix_symbols(self):
+        companies = self.session.query(Company).all()
+        for company in companies:
+            profile = self.client.get_profile(company.symbol)
+            if profile and "name" in profile:
+                company.sector = profile["finnhubIndustry"]
+                company.ipo = profile["ipo"]
+                company.weburl = profile["weburl"]
+            self.session.commit()
+
     def update_symbols(self):
         companies = self.client.get_all_stocks()
         new_companies = []
@@ -223,9 +236,20 @@ class DatabaseClient:
 
             try:
                 for company in companies:
-                    row = Company(
-                        symbol=company["symbol"], description=company["description"]
-                    )
+                    try:
+                        profile = self.client.get_profile(company["symbol"])
+                        row = Company(
+                            symbol=company["symbol"],
+                            description=company["description"],
+                            sector=profile["finnhubIndustry"],
+                            ipo=profile["ipo"],
+                            weburl=profile["weburl"],
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Error getting profile for {company['symbol']}: {e}"
+                        )
+                        continue
                     self.session.add(row)
                 self.session.commit()
                 return True
