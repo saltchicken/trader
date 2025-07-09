@@ -8,6 +8,7 @@ from alpaca.data.requests import (
     StockQuotesRequest,
 )
 from alpaca.trading.requests import (
+    OrderRequest,
     GetOrdersRequest,
     LimitOrderRequest,
     MarketOrderRequest,
@@ -18,6 +19,7 @@ from alpaca.trading.requests import (
 from alpaca.trading.enums import (
     OrderClass,
     OrderSide,
+    OrderType,
     QueryOrderStatus,
     TimeInForce,
 )
@@ -49,6 +51,41 @@ class AlpacaClient:
         )
         self.positions = self.trading_client.get_all_positions()
 
+    def test(self):
+        print(OrderClass.BRACKET)
+
+    def order_request(self, symbol, notional, buy_limit, time_in_force=TimeInForce.GTC, risk=0.1, reward_ratio=2.0):
+        exchange_info = self.get_stock_current_price(symbol)
+        current_ask_price = exchange_info[symbol].ask_price
+        if exchange_info[symbol].ask_exchange == " ":
+            if current_ask_price == 0.0:
+                print(f"❌ Ask price is 0 for {symbol}")
+            print(f"❌ No ask price for {symbol}")
+            return False
+
+        qty = int(notional // current_ask_price)
+        stop_price = current_ask_price * (1 - risk)
+        stop_price = round(stop_price, 2)
+        limit_price = current_ask_price * (1 + risk * reward_ratio)
+        limit_price = round(limit_price, 2)
+        req = OrderRequest(
+            symbol=symbol,
+            qty=qty,
+            side=OrderSide.BUY,
+            type=OrderType.MARKET,
+            # limit_price=buy_limit,
+            time_in_force=time_in_force,
+            order_class="bracket",
+            take_profit={
+                "limit_price": limit_price
+            },
+            stop_loss={
+                "stop_price": stop_price,
+            }
+        )
+        res = self.trading_client.submit_order(req)
+        return res
+
     def order_buy_market_bracket(self, symbol, notional, risk=0.1, reward_ratio=2.0):
         exchange_info = self.get_stock_current_price(symbol)
         current_ask_price = exchange_info[symbol].ask_price
@@ -58,17 +95,23 @@ class AlpacaClient:
             print(f"❌ No ask price for {symbol}")
             return False
 
+        qty = int(notional // current_ask_price)
+        if qty < 1:
+            print(f"❌ Not enough money to buy {qty} shares of {symbol}")
+            return False
         stop_price = current_ask_price * (1 - risk)
+        stop_price = round(stop_price, 2)
         limit_price = current_ask_price * (1 + risk * reward_ratio)
+        limit_price = round(limit_price, 2)
         print(
             f"Buying ${notional} of shares of {symbol} at market price. Take profit at ${limit_price} and stop loss at ${stop_price}"
         )
         req = MarketOrderRequest(
             symbol=symbol,
-            notional=notional,
+            qty=qty,
             side=OrderSide.BUY,
             time_in_force=TimeInForce.DAY,
-            Class=OrderClass.BRACKET,
+            order_class=OrderClass.BRACKET,
             take_profit=TakeProfitRequest(limit_price=limit_price),
             stop_loss=StopLossRequest(stop_price=stop_price),
         )
@@ -77,28 +120,40 @@ class AlpacaClient:
         return res
 
     # NOTE: Not working. Shows up as a Market Order
-    # def order_buy_limit_bracket(
-    #     self, symbol, notional, buy_limit_price, profit_limit_price, stop_price
-    # ):
-    #     current_price = self.get_stock_current_price(symbol)[symbol].ask_price
-    #     qty = int(notional // current_price)
-    #     if qty < 1:
-    #         print(f"❌ Not enough money to buy {qty} shares of {symbol}")
-    #         return False
-    #     print(f"Buying {qty} shares of {symbol} at a limit of ${buy_limit_price}")
-    #     req = MarketOrderRequest(
-    #         symbol=symbol,
-    #         qty=qty,
-    #         side=OrderSide.BUY,
-    #         type=OrderType.LIMIT,
-    #         time_in_force=TimeInForce.GTC,
-    #         Class=OrderClass.BRACKET,
-    #         take_profit=TakeProfitRequest(limit_price=profit_limit_price),
-    #         stop_loss=StopLossRequest(stop_price=stop_price),
-    #     )
-    #
-    #     res = self.trading_client.submit_order(req)
-    #     return res
+    def order_buy_limit_bracket(
+        self, symbol, notional, buy_limit_price, risk=0.1, reward_ratio=2.0
+    ):
+        exchange_info = self.get_stock_current_price(symbol)
+        current_ask_price = exchange_info[symbol].ask_price
+        if exchange_info[symbol].ask_exchange == " ":
+            if current_ask_price == 0.0:
+                print(f"❌ Ask price is 0 for {symbol}")
+            print(f"❌ No ask price for {symbol}")
+            return False
+
+        qty = int(notional // current_ask_price)
+        stop_price = current_ask_price * (1 - risk)
+        stop_price = round(stop_price, 2)
+        profit_limit_price = current_ask_price * (1 + risk * reward_ratio)
+        profit_limit_price = round(profit_limit_price, 2)
+        if qty < 1:
+            print(f"❌ Not enough money to buy {qty} shares of {symbol}")
+            return False
+        print(f"Buying {qty} shares of {symbol} at a limit of ${buy_limit_price}")
+        req = LimitOrderRequest(
+            symbol=symbol,
+            qty=qty,
+            side=OrderSide.BUY,
+            limit_price=buy_limit_price,
+            # type=OrderType.LIMIT,
+            time_in_force=TimeInForce.GTC,
+            order_class=OrderClass.BRACKET,
+            take_profit=TakeProfitRequest(limit_price=profit_limit_price),
+            stop_loss=StopLossRequest(stop_price=stop_price),
+        )
+
+        res = self.trading_client.submit_order(req)
+        return res
 
     def order_buy_limit_stop_loss(self, symbol, notional, limit_price, stop_price):
         current_price = self.get_stock_current_price(symbol)[symbol].ask_price
