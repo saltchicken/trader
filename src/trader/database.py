@@ -278,6 +278,9 @@ class DatabaseClient:
             revenue = None
             earnings_per_share_diluted = None
             net_income_loss = None
+            if not financials:
+                logger.error(f"Failed to get financials for {symbol}. Skipping")
+                continue
             for data in financials["data"]:
                 if data["year"] == 2025 and data["quarter"] == 1:
                     report = data["report"]
@@ -293,10 +296,19 @@ class DatabaseClient:
                             if item["concept"] == "us-gaap_NetIncomeLoss":
                                 net_income_loss = item["value"]
 
-            if not revenue or not net_income_loss or not earnings_per_share_diluted:
-                logger.error(f"Incomplete financials for {symbol}. Skipping")
-                continue
-            net_profit_margin = (net_income_loss / revenue) * 100
+            # if not revenue or not net_income_loss or not earnings_per_share_diluted:
+            #     logger.error(f"Incomplete financials for {symbol}. Skipping")
+            #     continue
+            if not revenue:
+                revenue = np.nan
+            if not earnings_per_share_diluted:
+                earnings_per_share_diluted = np.nan
+            if not net_income_loss:
+                net_income_loss = np.nan
+            if net_income_loss == np.nan or revenue == np.nan:
+                net_profit_margin = np.nan
+            else:
+                net_profit_margin = (net_income_loss / revenue) * 100
             # print(revenue)
             # print(earnings_per_share_diluted)
             # print(net_income_loss)

@@ -16,7 +16,8 @@ def has_stock_gained_10_percent(symbol, start_date, end_date):
 
 def main():
     trader = Trader()
-    trader.db.financials_update()
+    trader.alpaca.order_buy_market_bracket("AAPL", 1000)
+    # trader.db.financials_update()
     # trader.db.fix_symbols()
     # res = trader.alpaca.order_buy_market_bracket("ERO", 1000)
     # res = trader.alpaca.order_request("ARAY", 1000, 1.40)
